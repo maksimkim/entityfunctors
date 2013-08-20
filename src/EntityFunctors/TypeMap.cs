@@ -14,6 +14,8 @@
         protected TypeMap()
         {
             Contract.Assert(typeof(TSource) != typeof(TTarget));
+
+            Key = new TypeMapKey(typeof(TSource), typeof(TTarget));
         }
 
         protected IAccessable MapProperties<TProperty>(
@@ -87,15 +89,8 @@
             return association;
         }
 
-        public Type Source
-        {
-            get { return typeof(TSource); }
-        }
-
-        public Type Target
-        {
-            get { return typeof(TTarget); }
-        }
+        public virtual TypeMapKey Key { get; protected set; }
+        
 
         public IEnumerable<IMappingAssociation> Associations
         {

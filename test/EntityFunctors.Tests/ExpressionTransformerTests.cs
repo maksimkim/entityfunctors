@@ -12,12 +12,12 @@
     using NUnit.Framework;
 
     [TestFixture]
-    public class QueryTransformerTests
+    public class ExpressionTransformerTests
     {
         [Test]
         public void TestEmptyFilter()
         {
-            var sut = new QueryTransformer<Bar, Foo>(Enumerable.Empty<IMappingAssociation>());
+            var sut = new ExpressionTransformer<Bar, Foo>(Enumerable.Empty<IMappingAssociation>());
             
             var exp = sut.Transform(_ => true);
 
@@ -57,7 +57,7 @@
         {
             var sut = CreateSut<Foo, Bar, IEnumerable<int>>(_ => _.Ids, _ => _.Ids);
 
-            var exp = sut.Transform(_ => Enumerable.Any(_.Ids, id => id > 5));
+            var exp = sut.Transform(_ => _.Ids.Any(id => id > 5));
 
             exp.Should().NotBeNull();
 
@@ -88,7 +88,7 @@
                 _ => _.Names, 
                 _ => _.Select(int.Parse));
 
-            var exp = sut.Transform(_ => Enumerable.Any(_.Names));
+            var exp = sut.Transform(_ => _.Names.Any());
 
             exp.Should().NotBeNull();
 
@@ -182,7 +182,7 @@
         {
             var sut = CreateSut<Foo, Baz, Bar, Qux>(_ => _.Bazes, _ => _.Quxes);
 
-            var exp = sut.Transform(_ => Enumerable.Any(_.Quxes, q => q.Id > 10));
+            var exp = sut.Transform(_ => _.Quxes.Any(q => q.Id > 10));
 
             exp.Should().NotBeNull();
 
@@ -199,12 +199,12 @@
         }
 
 
-        private static IQueryTransformer<TTarget, TSource> CreateSut<TSource, TTarget, TProperty>(
+        private static IExpressionTransformer<TTarget, TSource> CreateSut<TSource, TTarget, TProperty>(
             Expression<Func<TSource, TProperty>> source,
             Expression<Func<TTarget, TProperty>> target
         )
         {
-            return new QueryTransformer<TTarget, TSource>(new[] 
+            return new ExpressionTransformer<TTarget, TSource>(new[] 
                 {
                     new PropertyToPropertyAssociation<TSource, TTarget>(
                         new PropertyPart(source.GetProperty()),
@@ -214,12 +214,12 @@
             );
         }
 
-        private static IQueryTransformer<TTarget, TSource> CreateExpressionToPropertySut<TSource, TTarget, TProperty>(
+        private static IExpressionTransformer<TTarget, TSource> CreateExpressionToPropertySut<TSource, TTarget, TProperty>(
             Expression<Func<TSource, TProperty>> source,
             Expression<Func<TTarget, TProperty>> target
         )
         {
-            return new QueryTransformer<TTarget, TSource>(new[]
+            return new ExpressionTransformer<TTarget, TSource>(new[]
             {
                 new ExpressionToPropertyAssociation<TSource, TTarget>(
                     source,
@@ -228,14 +228,14 @@
             });
         }
 
-        private static IQueryTransformer<TTarget, TSource> CreateSut<TSource, TSourceProperty, TTarget, TTargetProperty>(
+        private static IExpressionTransformer<TTarget, TSource> CreateSut<TSource, TSourceProperty, TTarget, TTargetProperty>(
             Expression<Func<TSource, TSourceProperty>> source,
             Func<TSourceProperty, TTargetProperty> converter,
             Expression<Func<TTarget, TTargetProperty>> target,
             Func<TTargetProperty, TSourceProperty> inverseConverter
         )
         {
-            return new QueryTransformer<TTarget, TSource>(new[] 
+            return new ExpressionTransformer<TTarget, TSource>(new[] 
                 {
                     new PropertyToPropertyAssociation<TSource, TTarget>(
                         new PropertyPart(source.GetProperty(), converter),
@@ -245,12 +245,12 @@
             );
         }
 
-        private IQueryTransformer<TTarget, TSource> CreateSut<TSource, TSourceProperty, TTarget, TTargetProperty>(
+        private IExpressionTransformer<TTarget, TSource> CreateSut<TSource, TSourceProperty, TTarget, TTargetProperty>(
             Expression<Func<TSource, TSourceProperty>> source,
             Expression<Func<TTarget, TTargetProperty>> target
         )
         {
-            return new QueryTransformer<TTarget, TSource>(new[] 
+            return new ExpressionTransformer<TTarget, TSource>(new[] 
                 {
                     new ComponentToComponentAssociation<Foo, Bar>(
                         new PropertyPart(source.GetProperty()),
@@ -260,12 +260,12 @@
             );
         }
 
-        private IQueryTransformer<TTarget, TSource> CreateSut<TSource, TSourceItem, TTarget, TTargetItem>(
+        private IExpressionTransformer<TTarget, TSource> CreateSut<TSource, TSourceItem, TTarget, TTargetItem>(
             Expression<Func<TSource, IEnumerable<TSourceItem>>> source,
             Expression<Func<TTarget, IEnumerable<TTargetItem>>> target
         )
         {
-            return new QueryTransformer<TTarget, TSource>(new[] 
+            return new ExpressionTransformer<TTarget, TSource>(new[] 
                 {
                     new ComponentCollectionAssociation<Foo, Bar>(
                         new PropertyPart(source.GetProperty()),

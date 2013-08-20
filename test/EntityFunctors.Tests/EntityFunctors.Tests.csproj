@@ -63,7 +63,7 @@
     <Compile Include="MapperFactoryTests.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="PropertyAssociationTests.cs" />
-    <Compile Include="QueryTransformerTests.cs" />
+    <Compile Include="ExpressionTransformerTests.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />

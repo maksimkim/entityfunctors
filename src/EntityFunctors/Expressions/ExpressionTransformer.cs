@@ -10,7 +10,7 @@
     using Extensions;
     using Remotion.Linq.Parsing;
 
-    public class QueryTransformer<TFrom, TTo> : ExpressionTreeVisitor, IQueryTransformer<TFrom, TTo>
+    public class ExpressionTransformer<TFrom, TTo> : ExpressionTreeVisitor, IExpressionTransformer<TFrom, TTo>
     {
         private static readonly IDictionary<Type, Func<Expression, TransformationContext, Expression>> Transforms =
             new Dictionary<Type, Func<Expression, TransformationContext, Expression>>
@@ -44,41 +44,13 @@
 
         private TransformationContext _ctx;
 
-        private static readonly IEqualityComparer<PropertyInfo> PropComparer = new PropertyInfoComparer();
-
-        private class PropertyInfoComparer : IEqualityComparer<PropertyInfo>
-        {
-            public bool Equals(PropertyInfo x, PropertyInfo y)
-            {
-                if (x == null || y == null)
-                    return false;
-
-                if (ReferenceEquals(x, y))
-                    return true;
-
-                return x.DeclaringType == y.DeclaringType && x.PropertyType == y.PropertyType && x.Name == y.Name;
-            }
-
-            public int GetHashCode(PropertyInfo obj)
-            {
-                unchecked
-                {
-                    var hashCode = obj.DeclaringType.GetHashCode();
-                    hashCode = (hashCode * 397) ^ obj.PropertyType.GetHashCode();
-                    hashCode = (hashCode * 397) ^ obj.Name.GetHashCode();
-                    return hashCode;
-                }
-            }
-        }
-
-        //todo: find why property that comes from rest2linq not equal the same from mapping (ReflectedType)
         private readonly IDictionary<PropertyInfo, Delegate> _converters 
-            = new Dictionary<PropertyInfo, Delegate>(PropComparer);
+            = new Dictionary<PropertyInfo, Delegate>();
 
         private readonly IDictionary<PropertyInfo, Func<Expression, ParameterExpression, Expression>> _rewriters 
-            = new Dictionary<PropertyInfo, Func<Expression, ParameterExpression, Expression>>(PropComparer);
+            = new Dictionary<PropertyInfo, Func<Expression, ParameterExpression, Expression>>();
 
-        public QueryTransformer(IEnumerable<IMappingAssociation> maps)
+        public ExpressionTransformer(IEnumerable<IMappingAssociation> maps)
         {
             Contract.Assert(maps != null);
 
@@ -86,7 +58,7 @@
                 _converters.Add(pair.Key, pair.Value);
 
             foreach (var pair in maps)
-                _rewriters.Add(pair.RewritableProperty, pair.Rewrite);
+                _rewriters.Add(pair.TargetProperty, pair.Rewrite);
         }
 
         public Expression<Func<TTo, TResult>> Transform<TResult>(Expression<Func<TFrom, TResult>> source)

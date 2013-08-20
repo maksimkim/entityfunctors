@@ -11,13 +11,15 @@
     {
         Expression BuildMapper(ParameterExpression @from, ParameterExpression to, IMappingRegistry registry, ParameterExpression expands);
 
-        PropertyInfo RewritableProperty { get; }
+        PropertyInfo TargetProperty { get; }
 
         MappingDirection Direction { get; }
 
         Expression Rewrite(Expression original, ParameterExpression parameter);
 
         IEnumerable<KeyValuePair<PropertyInfo, Delegate>> ValueConverters { get; }
+
+
     
     }
 
@@ -33,7 +35,7 @@
             return null;
         }
 
-        public PropertyInfo RewritableProperty
+        public PropertyInfo TargetProperty
         {
             get { return null; }
         }

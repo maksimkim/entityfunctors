@@ -7,6 +7,7 @@
     using System.Linq.Expressions;
     using Associations;
     using Common.Logging;
+    using Extensions;
     using Mappers;
 
     public class MapperFactory : IMapperFactory, IMappingRegistry
@@ -20,19 +21,19 @@
         private readonly ConcurrentDictionary<Tuple<Type, Type>, Delegate> _assignerCache = new ConcurrentDictionary<Tuple<Type, Type>, Delegate>();
 
         public MapperFactory(params IAssociationProvider[] maps)
+            : this(maps.AsEnumerable())
+        {
+            
+        }
+
+        public MapperFactory(IEnumerable<IAssociationProvider> maps)
         {
             _maps = maps.ToDictionary(
-                m => new TypeMapKey(m.Source, m.Target),
-                m => m.Associations
+                   m => m.Key,
+                   m => m.Associations
             );
         }
 
-        //public MapperFactory(IEnumerable<IAssociationProvider> maps)
-        //    : this(maps.ToArray())
-        //{
-            
-        //}
-        
         public Func<TSource, IEnumerable<string>, TTarget> GetCreator<TSource, TTarget>()
             where TTarget: class, new()
         {
@@ -62,6 +63,9 @@
                         expands
                     );
 
+                    Logger.Debug(m => m("{0} --> {1} mapper built:", from.Type, to.Type));
+                    Logger.Debug(m => m("{0}", mapper.Stringify()));
+
                     return mapper.Compile();
                 }
             );
@@ -86,6 +90,9 @@
                         );
 
                     var mapper = Expression.Lambda<Action<TSource, TTarget>>(body, from, to);
+
+                    Logger.Debug(m => m("{0} --> {1} mapper built:", from.Type, to.Type));
+                    Logger.Debug(m => m("{0}", mapper.Stringify()));
 
                     return mapper.Compile();
                 }

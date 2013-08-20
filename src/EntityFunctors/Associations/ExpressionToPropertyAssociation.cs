@@ -40,7 +40,7 @@
             );
         }
 
-        public PropertyInfo RewritableProperty
+        public PropertyInfo TargetProperty
         {
             get { return Target.Property; }
         }

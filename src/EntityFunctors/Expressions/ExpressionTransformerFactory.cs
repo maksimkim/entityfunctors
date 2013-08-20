@@ -6,22 +6,18 @@
     using System.Linq;
     using Associations;
 
-    public class QueryTransformerFactory : IQueryTransformerFactory
+    public class ExpressionTransformerFactory : IExpressionTransformerFactory
     {
         private readonly IDictionary<TypeMapKey, IEnumerable<IMappingAssociation>> _maps;
 
-        public QueryTransformerFactory(IEnumerable<IAssociationProvider> maps)
+        public ExpressionTransformerFactory(IEnumerable<IAssociationProvider> maps)
         {
             Contract.Assert(maps != null);
 
-            //Support only Expression of DTO -> Expression of Entity rewriting
-            _maps = maps.ToDictionary(
-                m => new TypeMapKey(m.Target, m.Source),
-                m => m.Associations
-            );
+            _maps = maps.ToDictionary(m => m.Key, m => m.Associations);
         }
 
-        public IQueryTransformer<TFrom, TTo> Create<TFrom, TTo>()
+        public IExpressionTransformer<TFrom, TTo> Create<TFrom, TTo>()
         {
             var key = new TypeMapKey(typeof(TFrom), typeof(TTo));
 
@@ -32,7 +28,7 @@
                     string.Format("Unable to convert filter of {0} to filter of {1} cause respective mapping from {0} to {1} wasn't found", typeof(TFrom), typeof(TTo))
                 );
 
-            return new QueryTransformer<TFrom, TTo>(assocs);
+            return new ExpressionTransformer<TFrom, TTo>(assocs);
         }
     }
 }

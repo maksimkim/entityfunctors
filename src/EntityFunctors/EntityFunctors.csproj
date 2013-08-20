@@ -59,10 +59,10 @@
     <Compile Include="Associations\PropertyPart.cs" />
     <Compile Include="Associations\PropertyToPropertyAssociation.cs" />
     <Compile Include="Expressions\ExpressionNavigator.cs" />
-    <Compile Include="Expressions\IQueryTransformer.cs" />
-    <Compile Include="Expressions\IQueryTransformerFactory.cs" />
-    <Compile Include="Expressions\QueryTransformer.cs" />
-    <Compile Include="Expressions\QueryTransformerFactory.cs" />
+    <Compile Include="Expressions\IExpressionTransformer.cs" />
+    <Compile Include="Expressions\IExpressionTransformerFactory.cs" />
+    <Compile Include="Expressions\ExpressionTransformer.cs" />
+    <Compile Include="Expressions\ExpressionTransformerFactory.cs" />
     <Compile Include="Expressions\TransformationContext.cs" />
     <Compile Include="Extensions\ExpressionExtensions.cs" />
     <Compile Include="Extensions\PropertyInfoExtensions.cs" />

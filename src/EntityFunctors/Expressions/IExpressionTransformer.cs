@@ -3,7 +3,7 @@
     using System;
     using System.Linq.Expressions;
 
-    public interface IQueryTransformer<TFrom, TTo>
+    public interface IExpressionTransformer<TFrom, TTo>
     {
         Expression<Func<TTo, TToResult>> Transform<TFromResult, TToResult>(Expression<Func<TFrom, TFromResult>> source);
 
