@@ -5,6 +5,7 @@
     using System.Diagnostics.Contracts;
     using System.Linq.Expressions;
     using System.Reflection;
+    using Cfg;
     using Extensions;
 
     public class PropertyToPropertyAssociation<TSource, TTarget> : IAccessable, IMappingAssociation
@@ -12,8 +13,6 @@
         public PropertyPart Source { get; private set; }
 
         public PropertyPart Target { get; private set; }
-
-        //private readonly IDictionary<Type, PropertyPart> _parts;
 
         private readonly bool _convertionRequired;
 
@@ -44,16 +43,10 @@
 
             Target = target;
 
-            //_parts = new Dictionary<Type, PropertyPart>
-            //{
-            //    { typeof(TSource), source },
-            //    { typeof(TTarget), target }
-            //};
-
             Direction = MappingDirection.All;
         }
 
-        public Expression BuildMapper(ParameterExpression @from, ParameterExpression to, IMappingRegistry registry, ParameterExpression expands)
+        public Expression BuildMapper(ParameterExpression @from, ParameterExpression to, ParameterExpression propertyKeys, IMappingRegistry registry)
         {
             Contract.Assert(@from.Type == typeof(TSource) || @from.Type == typeof(TTarget));
             Contract.Assert(to.Type == typeof(TSource) || to.Type == typeof(TTarget));
@@ -68,12 +61,23 @@
 
             var donorAccessor = Expression.Property(@from, donor.Property);
 
-            return Expression.Assign(
-                Expression.Property(to, aceptor.Property),
-                !_convertionRequired
-                ? donorAccessor
-                : BuildConverter(donor.Property, donorAccessor, donor.Converter.Method)
+            Expression result = Expression.Assign(
+                Expression.Property(to, aceptor.Property), 
+                !_convertionRequired 
+                ? donorAccessor : 
+                BuildConverter(donor.Property, donorAccessor, donor.Converter.Method)
             );
+
+            if (direction == MappingDirection.Write && propertyKeys != null)
+                result = Expression.IfThen(
+                    Expression.OrElse(
+                        propertyKeys.CreateCheckForDefault(), 
+                        propertyKeys.CreateContains(Expression.Constant(Config.ReflectionOptimizer.GetName(Target.Property), typeof(string)))
+                    ),
+                    result
+                );
+
+            return result;
         }
 
         public PropertyInfo TargetProperty

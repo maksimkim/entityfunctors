@@ -8,6 +8,6 @@
         Func<TSource, IEnumerable<string>, TTarget> GetCreator<TSource, TTarget>()
             where TTarget : class, new();
 
-        Action<TSource, TTarget> GetAssigner<TSource, TTarget>();
+        Action<TSource, TTarget, IEnumerable<string>> GetAssigner<TSource, TTarget>();
     }
 }

@@ -16,11 +16,11 @@
         {
             var pFrom = Expression.Parameter(typeof(TFrom), "from");
             var pTo = Expression.Parameter(typeof(TTo), "to");
-            var pExpands = Expression.Parameter(typeof(IEnumerable<string>), "expands");
+            var pPropertyKeys = Expression.Parameter(typeof(IEnumerable<string>), "propertyKeys");
 
-            var mapper = association.BuildMapper(pFrom, pTo, registry, pExpands);
+            var mapper = association.BuildMapper(pFrom, pTo, pPropertyKeys, registry);
 
-            var expression = Expression.Lambda<Action<TFrom, TTo>>(Expression.Block(mapper), pFrom, pTo);
+            var expression = Expression.Lambda<Action<TFrom, TTo>>(Expression.Block(new[] {pPropertyKeys}, mapper), pFrom, pTo);
 
             return expression.Compile();
         }

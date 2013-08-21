@@ -5,6 +5,7 @@
     using System.Diagnostics.Contracts;
     using System.Linq.Expressions;
     using System.Reflection;
+    using Extensions;
 
     public class ExpressionToPropertyAssociation<TSource, TTarget> : IMappingAssociation, IAccessable
     {
@@ -28,16 +29,27 @@
             Direction = MappingDirection.Read;
         }
 
-        public Expression BuildMapper(ParameterExpression @from, ParameterExpression to, IMappingRegistry registry, ParameterExpression expands)
+        public Expression BuildMapper(ParameterExpression @from, ParameterExpression to, ParameterExpression propertyKeys, IMappingRegistry registry)
         {
-            if (!(@from.Type == typeof(TSource) && to.Type == typeof(TTarget)))
-                //return nothing, cause ExpressionToPropertyAssociation allows only one way mapping from TSource to TTarget
+            Contract.Assert(@from.Type == typeof(TSource) || @from.Type == typeof(TTarget));
+            Contract.Assert(to.Type == typeof(TSource) || to.Type == typeof(TTarget));
+
+            var direction = @from.Type == typeof(TTarget) ? MappingDirection.Write : MappingDirection.Read;
+
+            if ((Direction & direction) != direction)
                 return Expression.Empty();
 
-            return Expression.Assign(
-                Expression.Property(to, Target.Property),
-                Expression.Invoke(Source, @from)
-            );
+            var donor =
+                direction == MappingDirection.Read
+                ? Rewrite(null, @from)
+                : Expression.Property(from, Target.Property);
+
+            var aceptor =
+                direction == MappingDirection.Read
+                ? Expression.Property(to, Target.Property)
+                : Rewrite(null, to);
+
+            return Expression.Assign(aceptor, donor);
         }
 
         public PropertyInfo TargetProperty
@@ -66,6 +78,9 @@
 
         public void WriteOnly()
         {
+            if (!IsPropertyChain(Source))
+                throw new InvalidOperationException("Only property chain expression can be set writable");
+            
             Direction = MappingDirection.Write;
         }
 
@@ -76,6 +91,9 @@
 
         public void Write()
         {
+            if (!IsPropertyChain(Source))
+                throw new InvalidOperationException("Only property chain expression can be set writable");
+
             AddDirection(MappingDirection.Write);
         }
 
@@ -83,6 +101,26 @@
         {
             if ((Direction & val) != val)
                 Direction |= val;
+        }
+
+        private bool IsPropertyChain(LambdaExpression expression)
+        {
+            var current = expression.Body;
+
+            while (current != null)
+            {
+                PropertyInfo p;
+
+                if (current.NodeType == ExpressionType.Parameter)
+                    return true;
+                
+                if (!current.TryGetProperty(out p))
+                    return false;
+
+                current = (current as MemberExpression).Expression;
+            }
+
+            return true;
         }
 
         private class ParameterRewriter : ExpressionVisitor

@@ -55,6 +55,9 @@
     <Compile Include="Associations\IAssociationProvider.cs" />
     <Compile Include="Associations\IExpandable.cs" />
     <Compile Include="Associations\IMappingAssociation.cs" />
+    <Compile Include="Cfg\Config.cs" />
+    <Compile Include="Cfg\DefaultReflectionOptimizer.cs" />
+    <Compile Include="Cfg\IReflectionOptimizer.cs" />
     <Compile Include="Associations\MappingDirection.cs" />
     <Compile Include="Associations\PropertyPart.cs" />
     <Compile Include="Associations\PropertyToPropertyAssociation.cs" />
@@ -65,12 +68,11 @@
     <Compile Include="Expressions\ExpressionTransformerFactory.cs" />
     <Compile Include="Expressions\TransformationContext.cs" />
     <Compile Include="Extensions\ExpressionExtensions.cs" />
-    <Compile Include="Extensions\PropertyInfoExtensions.cs" />
     <Compile Include="Extensions\TypeExtensions.cs" />
     <Compile Include="Mappers\IMapperFactory.cs" />
     <Compile Include="Associations\IMappingRegistry.cs" />
     <Compile Include="TypeMapKey.cs" />
-    <Compile Include="MapperFactory.cs" />
+    <Compile Include="Mappers\MapperFactory.cs" />
     <Compile Include="TypeMap.cs" />
     <Compile Include="Expressions\PathNode.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

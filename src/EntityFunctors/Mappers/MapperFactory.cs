@@ -1,14 +1,13 @@
-﻿namespace EntityFunctors
+﻿namespace EntityFunctors.Mappers
 {
     using System;
     using System.Collections.Concurrent;
     using System.Collections.Generic;
     using System.Linq;
     using System.Linq.Expressions;
-    using Associations;
+    using EntityFunctors.Associations;
     using Common.Logging;
-    using Extensions;
-    using Mappers;
+    using EntityFunctors.Extensions;
 
     public class MapperFactory : IMapperFactory, IMappingRegistry
     {
@@ -73,7 +72,7 @@
             return (Func<TSource, IEnumerable<string>, TTarget>)val;
         }
 
-        public Action<TSource, TTarget> GetAssigner<TSource, TTarget>()
+        public Action<TSource, TTarget, IEnumerable<string>> GetAssigner<TSource, TTarget>()
         {
             var val = _assignerCache.GetOrAdd(
                 Tuple.Create(typeof(TSource), typeof(TTarget)), 
@@ -81,15 +80,16 @@
                 {
                     var from = Expression.Parameter(key.Item1, "from");
                     var to = Expression.Parameter(key.Item2, "to");
+                    var explicitProperties = Expression.Parameter(typeof(IEnumerable<string>), "explicitProperties");
 
-                    var body = BuildMapperBody(@from, to, null);
+                    var body = BuildMapperBody(@from, to, explicitProperties);
 
                     if (body == null)
                         throw new NotImplementedException(
                             string.Format("Unable to create mapper from {0} to {1}. Check appropriate mappings exist and loaded.", from.Type, to.Type)
                         );
 
-                    var mapper = Expression.Lambda<Action<TSource, TTarget>>(body, from, to);
+                    var mapper = Expression.Lambda<Action<TSource, TTarget, IEnumerable<string>>>(body, from, to, explicitProperties);
 
                     Logger.Debug(m => m("{0} --> {1} mapper built:", from.Type, to.Type));
                     Logger.Debug(m => m("{0}", mapper.Stringify()));
@@ -98,7 +98,7 @@
                 }
             );
 
-            return (Action<TSource, TTarget>)val;
+            return (Action<TSource, TTarget, IEnumerable<string>>)val;
         }
 
         public Expression GetMapper(ParameterExpression @from, ParameterExpression to, ParameterExpression expands)
@@ -106,7 +106,7 @@
             return BuildMapperBody(@from, to, expands);
         }
 
-        public Expression BuildMapperBody(ParameterExpression @from, ParameterExpression to, ParameterExpression expands)
+        public Expression BuildMapperBody(ParameterExpression @from, ParameterExpression to, ParameterExpression propertyKeys)
         {
             var key = new TypeMapKey(@from.Type, to.Type);
 
@@ -115,10 +115,16 @@
             if (!_maps.TryGetValue(key, out assocs))
                 return null;
 
+            var statements =
+                assocs
+                .Select(a => a.BuildMapper(@from, to, propertyKeys, this))
+                .Where(e => !(e.NodeType == ExpressionType.Default && e.Type == typeof(void)))
+                .ToArray();
+
             return 
-                Expression.Block(
-                    assocs.Select(a => a.BuildMapper(@from, to, this, expands))
-                );
+                statements.Length == 0 
+                ? (Expression)Expression.Empty()
+                : Expression.Block(statements);
         }
     }
 }

@@ -9,7 +9,7 @@
     [ContractClass(typeof (ContactForMappingAssociation))]
     public interface IMappingAssociation
     {
-        Expression BuildMapper(ParameterExpression @from, ParameterExpression to, IMappingRegistry registry, ParameterExpression expands);
+        Expression BuildMapper(ParameterExpression @from, ParameterExpression to, ParameterExpression propertyKeys, IMappingRegistry registry);
 
         PropertyInfo TargetProperty { get; }
 
@@ -18,15 +18,12 @@
         Expression Rewrite(Expression original, ParameterExpression parameter);
 
         IEnumerable<KeyValuePair<PropertyInfo, Delegate>> ValueConverters { get; }
-
-
-    
     }
 
     [ContractClassFor(typeof(IMappingAssociation))]
     public abstract class ContactForMappingAssociation : IMappingAssociation
     {
-        public Expression BuildMapper(ParameterExpression @from, ParameterExpression to, IMappingRegistry registry, ParameterExpression expands)
+        public Expression BuildMapper(ParameterExpression @from, ParameterExpression to, ParameterExpression propertyKeys, IMappingRegistry registry)
         {
             Contract.Assert(@from != null);
             Contract.Assert(@to != null);

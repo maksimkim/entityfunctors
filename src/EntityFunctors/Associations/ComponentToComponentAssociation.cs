@@ -5,6 +5,7 @@
     using System.Diagnostics.Contracts;
     using System.Linq.Expressions;
     using System.Reflection;
+    using Cfg;
     using Extensions;
 
     public class ComponentToComponentAssociation<TSource, TTarget> : IAccessable, IExpandable, IMappingAssociation
@@ -15,7 +16,7 @@
 
         public MappingDirection Direction { get; private set; }
 
-        protected string Expand { get; set; }
+        protected bool Expand { get; set; }
 
         public ComponentToComponentAssociation(PropertyPart source, PropertyPart target)
         {
@@ -28,7 +29,7 @@
             Direction = MappingDirection.All;
         }
 
-        public Expression BuildMapper(ParameterExpression @from, ParameterExpression to, IMappingRegistry registry, ParameterExpression expands)
+        public Expression BuildMapper(ParameterExpression @from, ParameterExpression to, ParameterExpression propertyKeys, IMappingRegistry registry)
         {
             Contract.Assert(@from.Type == typeof(TSource) || @from.Type == typeof(TTarget));
             Contract.Assert(to.Type == typeof(TSource) || to.Type == typeof(TTarget));
@@ -51,7 +52,7 @@
             var varTo = Expression.Variable(typeTo);
 
             //todo: filter out expands
-            var mapper = registry.GetMapper(varFrom, varTo, expands);
+            var mapper = registry.GetMapper(varFrom, varTo, null);
 
             if (mapper == null)
                 throw new InvalidOperationException(string.Format(
@@ -92,9 +93,21 @@
                     Expression.Block(new[] {varFrom, varTo}, body)
                 );
 
-            if (direction == MappingDirection.Read && expands != null && !string.IsNullOrWhiteSpace(Expand))
+            if (propertyKeys == null)
+                return result;
+
+            if (direction == MappingDirection.Read && Expand)
                 result = Expression.IfThen(
-                    expands.CreateContains(Expression.Constant(Expand, typeof(string))), 
+                    propertyKeys.CreateContains(Expression.Constant(Config.ReflectionOptimizer.GetName(Target.Property), typeof(string))), 
+                    result
+                );
+
+            if (direction == MappingDirection.Write)
+                result = Expression.IfThen(
+                    Expression.OrElse(
+                        propertyKeys.CreateCheckForDefault(),
+                        propertyKeys.CreateContains(Expression.Constant(Config.ReflectionOptimizer.GetName(Target.Property), typeof(string)))
+                    ),
                     result
                 );
 
@@ -109,7 +122,7 @@
 
         public Expression Rewrite(Expression original, ParameterExpression parameter)
         {
-            throw new NotImplementedException();
+            return Expression.Property(parameter, Source.Property);
         }
 
         public IEnumerable<KeyValuePair<PropertyInfo, Delegate>> ValueConverters
@@ -145,7 +158,7 @@
 
         public void Expandable()
         {
-            Expand = Target.Property.GetContractName();
+            Expand = true;
         }
     }
 }

@@ -6,6 +6,7 @@
     using System.Linq;
     using System.Linq.Expressions;
     using System.Reflection;
+    using Cfg;
     using Extensions;
 
     public abstract class CollectionAssociationBase<TSource, TTarget> : IExpandable, IMappingAssociation
@@ -55,7 +56,7 @@
             Source = source;
         }
 
-        public virtual Expression BuildMapper(ParameterExpression @from, ParameterExpression to, IMappingRegistry registry, ParameterExpression expands)
+        public virtual Expression BuildMapper(ParameterExpression @from, ParameterExpression to, ParameterExpression propertyKeys, IMappingRegistry registry)
         {
             if (!(@from.Type == typeof(TSource) && to.Type == typeof(TTarget)))
                 return Expression.Empty();
@@ -77,7 +78,7 @@
                             Expression.Call(
                                 Select.MakeGenericMethod(itemTypeFrom, itemTypeTo),
                                 propFrom,
-                                CreateSelector(itemTypeFrom, itemTypeTo, expands, registry)
+                                CreateSelector(itemTypeFrom, itemTypeTo, propertyKeys, registry)
                             )
                         ),
                         Target.Property.PropertyType
@@ -85,10 +86,10 @@
                 )
             );
 
-            if (expands != null && !string.IsNullOrWhiteSpace(Expand))
+            if (propertyKeys != null && !string.IsNullOrWhiteSpace(Expand))
                 mapper =
                     Expression.IfThen(
-                        expands.CreateContains(Expression.Constant(Expand, typeof(string))),
+                        propertyKeys.CreateContains(Expression.Constant(Expand, typeof(string))),
                         mapper
                     );
 
@@ -114,7 +115,7 @@
 
         public void Expandable()
         {
-            Expand = Target.Property.GetContractName();
+            Expand = Config.ReflectionOptimizer.GetName(Target.Property);
         }
     }
 }
