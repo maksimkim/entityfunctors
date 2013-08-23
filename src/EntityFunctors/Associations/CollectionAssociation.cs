@@ -1,6 +1,7 @@
 ﻿namespace EntityFunctors.Associations
 {
     using System;
+    using System.Collections.Generic;
     using System.Diagnostics.Contracts;
     using System.Linq.Expressions;
     using Extensions;
@@ -18,6 +19,11 @@
             Contract.Assert(converter.ReturnType == target.Property.PropertyType.GetItemType());
             
             Converter = converter;
+        }
+
+        public override IEnumerable<TypeMapKey> ChildMapKeys
+        {
+            get { yield break;}
         }
 
         protected override LambdaExpression CreateSelector(Type @from, Type to, ParameterExpression expands, IMappingRegistry registry)

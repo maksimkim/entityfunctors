@@ -1,6 +1,5 @@
 ﻿namespace EntityFunctors.Associations
 {
-    using System;
     using System.Collections.Generic;
     using System.Diagnostics.Contracts;
     using System.Linq.Expressions;
@@ -11,13 +10,15 @@
     {
         Expression BuildMapper(ParameterExpression @from, ParameterExpression to, ParameterExpression propertyKeys, IMappingRegistry registry);
 
+        Expression Build(Expression arg);
+
         PropertyInfo TargetProperty { get; }
 
         MappingDirection Direction { get; }
 
-        Expression Rewrite(Expression original, ParameterExpression parameter);
+        Expression Rewrite(Expression original, Expression replacement);
 
-        IEnumerable<KeyValuePair<PropertyInfo, Delegate>> ValueConverters { get; }
+        IEnumerable<TypeMapKey> ChildMapKeys { get; }
     }
 
     [ContractClassFor(typeof(IMappingAssociation))]
@@ -32,20 +33,27 @@
             return null;
         }
 
+        public Expression Build(Expression arg)
+        {
+            Contract.Assert(arg != null);
+
+            return null;
+        }
+
         public PropertyInfo TargetProperty
         {
             get { return null; }
         }
 
-        public Expression Rewrite(Expression original, ParameterExpression parameter)
+        public Expression Rewrite(Expression original, Expression replacement)
         {
             Contract.Assert(original != null);
-            Contract.Assert(parameter != null);
+            Contract.Assert(replacement != null);
             
             return null;
         }
 
-        public IEnumerable<KeyValuePair<PropertyInfo, Delegate>> ValueConverters 
+        public IEnumerable<TypeMapKey> ChildMapKeys
         {
             get { yield break; }
         }

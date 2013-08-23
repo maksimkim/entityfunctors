@@ -61,12 +61,8 @@
     <Compile Include="Associations\MappingDirection.cs" />
     <Compile Include="Associations\PropertyPart.cs" />
     <Compile Include="Associations\PropertyToPropertyAssociation.cs" />
-    <Compile Include="Expressions\ExpressionNavigator.cs" />
-    <Compile Include="Expressions\IExpressionTransformer.cs" />
-    <Compile Include="Expressions\IExpressionTransformerFactory.cs" />
-    <Compile Include="Expressions\ExpressionTransformer.cs" />
-    <Compile Include="Expressions\ExpressionTransformerFactory.cs" />
-    <Compile Include="Expressions\TransformationContext.cs" />
+    <Compile Include="Expressions\ExpressionMapper.cs" />
+    <Compile Include="Expressions\IExpressionMapper.cs" />
     <Compile Include="Extensions\ExpressionExtensions.cs" />
     <Compile Include="Extensions\TypeExtensions.cs" />
     <Compile Include="Mappers\IMapperFactory.cs" />
@@ -74,7 +70,6 @@
     <Compile Include="TypeMapKey.cs" />
     <Compile Include="Mappers\MapperFactory.cs" />
     <Compile Include="TypeMap.cs" />
-    <Compile Include="Expressions\PathNode.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>

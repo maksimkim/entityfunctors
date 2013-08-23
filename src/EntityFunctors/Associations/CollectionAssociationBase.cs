@@ -96,20 +96,22 @@
             return mapper;
         }
 
+        public Expression Build(Expression arg)
+        {
+            return Expression.Property(arg, Source.Property);
+        }
+
         public PropertyInfo TargetProperty
         {
             get { return Target.Property; }
         }
 
-        public Expression Rewrite(Expression original, ParameterExpression parameter)
+        public Expression Rewrite(Expression original, Expression replacement)
         {
-            return Expression.Property(parameter, Source.Property);
+            return Expression.Property(replacement, Source.Property);
         }
 
-        public IEnumerable<KeyValuePair<PropertyInfo, Delegate>> ValueConverters
-        {
-            get { yield break; }
-        }
+        public abstract IEnumerable<TypeMapKey> ChildMapKeys { get; }
 
         protected abstract LambdaExpression CreateSelector(Type @from, Type to, ParameterExpression expands, IMappingRegistry registry);
 

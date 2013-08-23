@@ -5,9 +5,9 @@
 
     public class TypeMapKey : IEquatable<TypeMapKey>
     {
-        private Type Low { get; set; }
+        public Type Low { get; set; }
 
-        private Type High { get; set; }
+        public Type High { get; set; }
 
         public TypeMapKey(Type source, Type target)
         {
@@ -16,6 +16,7 @@
             Contract.Assert(source != target);
 
             Low = string.Compare(source.Name, target.Name, StringComparison.OrdinalIgnoreCase) < 0 ? source : target;
+
             High = string.Compare(source.Name, target.Name, StringComparison.OrdinalIgnoreCase) < 0 ? target : source;
         }
 

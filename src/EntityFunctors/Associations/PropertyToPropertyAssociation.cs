@@ -28,7 +28,7 @@
 
             _convertionRequired = pSource.PropertyType != pTarget.PropertyType;
 
-            if (_convertionRequired && !(source.Converter != null && target.Converter != null && source.Converter.Method.ReturnType == pTarget.PropertyType && target.Converter.Method.ReturnType == pSource.PropertyType))
+            if (_convertionRequired && !(source.ConverterMethod != null && target.ConverterMethod != null && source.ConverterMethod.ReturnType == pTarget.PropertyType && target.ConverterMethod.ReturnType == pSource.PropertyType))
                 throw new InvalidOperationException(
                    string.Format(
                        "Mapping property {0} to {1} requires providing value converter from {2} to {3}",
@@ -65,7 +65,7 @@
                 Expression.Property(to, aceptor.Property), 
                 !_convertionRequired 
                 ? donorAccessor : 
-                BuildConverter(donor.Property, donorAccessor, donor.Converter.Method)
+                BuildConverter(donor.Property, donorAccessor, donor.ConverterMethod)
             );
 
             if (direction == MappingDirection.Write && propertyKeys != null)
@@ -80,31 +80,42 @@
             return result;
         }
 
+        public Expression Build(Expression arg)
+        {
+            var constant = arg as ConstantExpression;
+            if (constant != null)
+            {
+                if (Target.Converter == null)
+                    throw new InvalidOperationException();
+
+                return Expression.Constant(
+                    Target.Converter(constant.Value), 
+                    Target.ConverterMethod.ReturnType
+                );
+            }
+                
+            
+            return Expression.Property(arg, Source.Property);
+        }
+
         public PropertyInfo TargetProperty
         {
             get { return Target.Property; }
         }
 
-        public Expression Rewrite(Expression original, ParameterExpression parameter)
+        public Expression Rewrite(Expression original, Expression replacement)
         {
-            return Expression.Property(parameter, Source.Property);
+            var cnst = original as ConstantExpression;
+
+            if (cnst != null)
+                return _convertionRequired ? Expression.Constant(Target.Converter(cnst.Value), Source.Property.PropertyType) : cnst;
+           
+            return Expression.Property(replacement, Source.Property);
         }
 
-        private KeyValuePair<PropertyInfo, Delegate> _converter;
-        
-        public IEnumerable<KeyValuePair<PropertyInfo, Delegate>> ValueConverters
+        public IEnumerable<TypeMapKey> ChildMapKeys
         {
-            get
-            {
-                if (!_convertionRequired)
-                    yield break;
-
-                //todo: Check for default value
-                yield return
-                    _converter.Key == null
-                    ? (_converter = new KeyValuePair<PropertyInfo, Delegate>(Target.Property, Target.Converter))
-                    : _converter;
-            }
+            get { yield break; }
         }
 
         private static Expression BuildConverter(PropertyInfo property, MemberExpression accessor, MethodInfo method)

@@ -1,7 +1,9 @@
 ﻿namespace EntityFunctors.Associations
 {
     using System;
+    using System.Collections.Generic;
     using System.Linq.Expressions;
+    using Extensions;
 
     public class ComponentCollectionAssociation<TSource, TTarget> : CollectionAssociationBase<TSource, TTarget>
     {
@@ -9,6 +11,17 @@
             :base(source, target)
         {
 
+        }
+
+        public override IEnumerable<TypeMapKey> ChildMapKeys
+        {
+            get 
+            { 
+                yield return new TypeMapKey(
+                    Source.Property.PropertyType.GetItemType(),
+                    Target.Property.PropertyType.GetItemType()
+                );
+            }
         }
 
         protected override LambdaExpression CreateSelector(Type @from, Type to, ParameterExpression expands, IMappingRegistry registry)

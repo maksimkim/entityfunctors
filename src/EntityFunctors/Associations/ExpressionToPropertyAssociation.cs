@@ -52,13 +52,25 @@
             return Expression.Assign(aceptor, donor);
         }
 
+        public Expression Build(Expression arg)
+        {
+            var rewriter = new ParameterRewriter(Source.Parameters[0], arg);
+
+            var rewriten = rewriter.Visit(Source.Body);
+
+            return rewriten;
+        }
+
         public PropertyInfo TargetProperty
         {
             get { return Target.Property; }
         }
 
-        public Expression Rewrite(Expression original, ParameterExpression parameter)
+        public Expression Rewrite(Expression original, Expression parameter)
         {
+            if (original is ConstantExpression)
+                return original;
+            
             var rewriter = new ParameterRewriter(Source.Parameters[0], parameter);
 
             var rewriten = rewriter.Visit(Source.Body);
@@ -66,7 +78,7 @@
             return rewriten;
         }
 
-        public IEnumerable<KeyValuePair<PropertyInfo, Delegate>> ValueConverters
+        public IEnumerable<TypeMapKey> ChildMapKeys
         {
             get { yield break; }
         }
@@ -126,9 +138,9 @@
         private class ParameterRewriter : ExpressionVisitor
         {
             private readonly ParameterExpression _from;
-            private readonly ParameterExpression _to;
+            private readonly Expression _to;
 
-            public ParameterRewriter(ParameterExpression from, ParameterExpression to)
+            public ParameterRewriter(ParameterExpression from, Expression to)
             {
                 Contract.Assert(@from != null);
                 Contract.Assert(to != null);
