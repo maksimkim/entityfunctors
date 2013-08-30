@@ -6,6 +6,7 @@
     using EntityFunctors.Extensions;
     using FluentAssertions;
     using Helpers;
+    using Mappers;
     using Moq;
     using NUnit.Framework;
 
@@ -18,33 +19,26 @@
         public void TestDirectMappingCreatesTargetComponent()
         {
             var foo = new Foo { Component = new Baz { Id = 15 } };
-            var bar = new Bar { Component = new Qux { Id = 16 } };
 
-            var before = bar.Component;
+            var sut = new ComponentToComponentAssociation<Foo, Baz, Bar, Qux>(_ => _.Component, _ => _.Component);
 
-            var sut = CreateSut();
-
-            MapperBuilder.BuildMapper<Foo, Bar>(sut, MockRegistry())(foo, bar);
-
+            var bar = CreateReader(sut)(foo);
+            bar.Should().NotBeNull();
             bar.Component.Should().NotBeNull();
-            bar.Component.Should().NotBeSameAs(before);
+            bar.Component.Id.Should().Be(0);
         }
 
         [Test]
         public void TestDirectMappingAppliesMapper()
         {
             var foo = new Foo { Component = new Baz { Id = 15 } };
-            var bar = new Bar { Component = new Qux { Id = 16 } };
 
-            var sut = CreateSut();
+            var sut = new ComponentToComponentAssociation<Foo, Baz, Bar, Qux>(_ => _.Component, _ => _.Component);
+            var component = new PropertyToPropertyAssociation<Baz, Qux, int>(_ => _.Id, _ => _.Id);
 
-            var mapper = MapperBuilder.BuildMapper<Foo, Bar>(
-                sut,
-                MockRegistry((from, to) => CreateSimpleAssignMapper<Baz, Qux, int>(from, _ => _.Id, to, _ => _.Id))
-            );
-
-            mapper(foo, bar);
-
+            var bar = CreateReader(sut, component)(foo);
+            bar.Should().NotBeNull();
+            bar.Component.Should().NotBeNull();
             bar.Component.Id.Should().Be(foo.Component.Id);
         }
 
@@ -56,7 +50,7 @@
 
             var before = foo.Component;
 
-            var sut = CreateSut();
+            var sut = new ComponentToComponentAssociation<Foo, Baz, Bar, Qux>(_ => _.Component, _ => _.Component);
 
             MapperBuilder.BuildMapper<Bar, Foo>(sut, MockRegistry())(bar, foo);
 
@@ -70,7 +64,9 @@
             var foo = new Foo { Component = new Baz { Id = 15 } };
             var bar = new Bar { Component = new Qux { Id = 16 } };
 
-            var sut = CreateSut();
+            Expression<Func<Foo, Baz>> source = _ => _.Component;
+            Expression<Func<Bar, Qux>> target = _ => _.Component;
+            var sut = new ComponentToComponentAssociation<Foo, Baz, Bar, Qux>(source, target);
 
             var mapper = MapperBuilder.BuildMapper<Bar, Foo>(
                 sut,
@@ -88,14 +84,13 @@
             Foo foo;
             Bar bar;
 
-            var sut = CreateSut();
+            var sut = new ComponentToComponentAssociation<Foo, Baz, Bar, Qux>(_ => _.Component, _ => _.Component);
+            var component = new PropertyToPropertyAssociation<Baz, Qux, int>(_ => _.Id, _ => _.Id);
 
             foo = new Foo();
             bar = new Bar { Component = new Qux { Id = 16 } };
-            MapperBuilder.BuildMapper<Foo, Bar>(
-                sut,
-                MockRegistry((from, to) => CreateSimpleAssignMapper<Baz, Qux, int>(from, _ => _.Id, to, _ => _.Id))
-            )(foo, bar);
+            bar = CreateReader(sut, component)(foo);
+            bar.Should().NotBeNull();
             bar.Component.Should().BeNull();
 
             foo = new Foo {Component = new Baz()};
@@ -105,17 +100,6 @@
                 MockRegistry((from, to) => CreateSimpleAssignMapper<Qux, Baz, int>(from, _ => _.Id, to, _ => _.Id))
             )(bar, foo);
             foo.Component.Should().BeNull();
-        }
-
-        private IMappingAssociation CreateSut()
-        {
-            Expression<Func<Foo, Baz>> source = _ => _.Component;
-            Expression<Func<Bar, Qux>> target = _ => _.Component;
-            
-            return new ComponentToComponentAssociation<Foo, Bar>(
-                new PropertyPart(source.GetProperty()),
-                new PropertyPart(target.GetProperty())
-            );
         }
 
         private IMappingRegistry MockRegistry(Func<ParameterExpression, ParameterExpression, Expression> mapperFactory = null)
@@ -141,8 +125,28 @@
             return Expression.Assign(
                 Expression.Property(to, toProperty.GetProperty()),
                 Expression.Property(from, fromProperty.GetProperty())
-                
             );
+        }
+
+
+        private static Func<Foo, Bar> CreateReader(IMappingAssociation association)
+        {
+            var factory = new MapperFactory(
+                new TestMap(typeof(Foo), typeof(Bar), association),
+                new TestMap(typeof(Baz), typeof(Qux))
+            );
+
+            return _ => factory.GetReader<Foo, Bar>()(_, null);
+        }
+
+        private static Func<Foo, Bar> CreateReader(IMappingAssociation association, IMappingAssociation componentAssociation)
+        {
+            var factory = new MapperFactory(
+                new TestMap(typeof(Foo), typeof(Bar), association),
+                new TestMap(typeof(Baz), typeof(Qux), componentAssociation)
+            );
+
+            return _ => factory.GetReader<Foo, Bar>()(_, null);
         }
     }
 }

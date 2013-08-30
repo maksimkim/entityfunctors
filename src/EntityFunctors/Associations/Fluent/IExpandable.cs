@@ -1,4 +1,4 @@
-﻿namespace EntityFunctors.Associations
+﻿namespace EntityFunctors.Associations.Fluent
 {
     public interface IExpandable
     {

@@ -8,6 +8,8 @@
 
         public string Name { get; set; }
 
+        public string OrderNo { get; set; }
+
         public Qux Component { get; set; }
 
         public IEnumerable<Qux> Quxes { get; set; }

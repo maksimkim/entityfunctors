@@ -21,7 +21,7 @@
 
             sut(bar, foo, null);
 
-            foo.Name.Should().Be(bar.Name);
+            foo.Name.Should().Be(bar.Name.Substring(0,1));
         }
 
         [Test]
@@ -90,7 +90,7 @@
             var foo = new Foo { Component = new Baz() };
             sut(bar, foo, new[] {"Name"});
 
-            foo.Name.Should().Be(bar.Name);
+            foo.Name.Should().Be(bar.Name.Substring(0, 1));
             foo.Component.Id.Should().Be(0);
 
             foo = new Foo { Component = new Baz() };
@@ -102,7 +102,7 @@
             foo = new Foo { Component = new Baz() };
             sut(bar, foo, new[] {"Name", "Component"});
             
-            foo.Name.Should().Be(bar.Name);
+            foo.Name.Should().Be(bar.Name.Substring(0, 1));
             foo.Component.Id.Should().Be(bar.Component.Id);
         }
 

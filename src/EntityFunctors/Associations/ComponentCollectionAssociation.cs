@@ -5,23 +5,21 @@
     using System.Linq.Expressions;
     using Extensions;
 
-    public class ComponentCollectionAssociation<TSource, TTarget> : CollectionAssociationBase<TSource, TTarget>
+    public class ComponentCollectionAssociation<TSource, TSourceItem, TTarget, TTargetItem> 
+        : CollectionAssociationBase<TSource, TSourceItem, TTarget, TTargetItem>, IComponentAssociation
+        where TSource : class
+        where TSourceItem : class
+        where TTarget : class, new()
+        where TTargetItem: class, new()
     {
-        public ComponentCollectionAssociation(PropertyPart source, PropertyPart target)
-            :base(source, target)
-        {
+        public TypeMapKey ComponentKey { get; private set; }
 
-        }
-
-        public override IEnumerable<TypeMapKey> ChildMapKeys
+        public ComponentCollectionAssociation(
+            Expression<Func<TSource, IEnumerable<TSourceItem>>> source, 
+            Expression<Func<TTarget, IEnumerable<TTargetItem>>> target)
+            : base(source, target)
         {
-            get 
-            { 
-                yield return new TypeMapKey(
-                    Source.Property.PropertyType.GetItemType(),
-                    Target.Property.PropertyType.GetItemType()
-                );
-            }
+            ComponentKey = new TypeMapKey(SourceItemType, TargetItemType);
         }
 
         protected override LambdaExpression CreateSelector(Type @from, Type to, ParameterExpression expands, IMappingRegistry registry)
@@ -44,8 +42,8 @@
             if (mapper == null)
                 throw new InvalidOperationException(string.Format(
                     "Component collection registration mapping {0} <--> {1} requires mapping for types {2} <--> {3} that wasn't found",
-                    typeof(TSource).Name + "." + Source.Property.Name,
-                    typeof(TTarget).Name + "." + Target.Property.Name,
+                    typeof(TSource).Name + "." + Source.GetProperty().Name,
+                    typeof(TTarget).Name + "." + Target.GetProperty().Name,
                     @from,
                     to
                 ));

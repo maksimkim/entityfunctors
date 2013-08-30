@@ -4,6 +4,7 @@
     using System.Collections.Generic;
     using System.Linq.Expressions;
     using EntityFunctors.Associations;
+    using Mappers;
 
     public class MapperBuilder
     {
@@ -20,9 +21,11 @@
 
             var mapper = association.BuildMapper(pFrom, pTo, pPropertyKeys, registry);
 
-            var expression = Expression.Lambda<Action<TFrom, TTo>>(Expression.Block(new[] {pPropertyKeys}, mapper), pFrom, pTo);
+            Expression<Action<TFrom, TTo>> expression = Expression.Lambda<Action<TFrom, TTo>>(Expression.Block(new[] {pPropertyKeys}, mapper), pFrom, pTo);
 
             return expression.Compile();
         }
+
+
     }
 }

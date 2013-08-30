@@ -6,24 +6,25 @@
     using EntityFunctors.Extensions;
     using FluentAssertions;
     using Helpers;
+    using Mappers;
     using NUnit.Framework;
 
     [TestFixture]
     public class PropertyAssociationTests
     {
         private static readonly MapperBuilder MapperBuilder = new MapperBuilder();
-        
+
         [Test]
         public void TestIntMapping()
         {
             Foo foo;
             Bar bar;
 
-            var sut = CreateSut<Foo, Bar, int>(_ => _.Id, _ => _.Id);
+            var sut = new PropertyToPropertyAssociation<Foo, Bar, int>(_ => _.Id,_ => _.Id);
 
             foo = new Foo { Id = 5 };
-            bar = new Bar { Id = 6 };
-            MapperBuilder.BuildMapper<Foo, Bar>(sut)(foo, bar);
+            bar = CreateReader(sut)(foo);
+            bar.Should().NotBeNull();
             bar.Id.Should().Be(foo.Id);
 
             foo = new Foo { Id = 5 };
@@ -38,11 +39,11 @@
             Foo foo;
             Bar bar;
 
-            var sut = CreateSut<Foo, Bar, string>(_ => _.Name, _ => _.Name);
+            var sut = new PropertyToPropertyAssociation<Foo, Bar, string>(_ => _.Name,_ => _.Name);
 
             foo = new Foo { Name = "aaa" };
-            bar = new Bar { Name = "bbb" };
-            MapperBuilder.BuildMapper<Foo, Bar>(sut)(foo, bar);
+            bar = CreateReader(sut)(foo);
+            bar.Should().NotBeNull();
             bar.Id.Should().Be(foo.Id);
 
             foo = new Foo { Name = "aaa" };
@@ -57,11 +58,11 @@
             Foo foo;
             Bar bar;
 
-            var sut = CreateSut<Foo, int, Bar, string>(_ => _.Id, _ => _.ToString(), _ => _.Name, int.Parse);
+            var sut = new PropertyToPropertyWithConversionAssociation<Foo, int, Bar, string>(_ => _.Id, _ => _.ToString(), _ => _.Name, _ => int.Parse(_));
 
             foo = new Foo { Id = 123 };
-            bar = new Bar { Name = "bbb" };
-            MapperBuilder.BuildMapper<Foo, Bar>(sut)(foo, bar);
+            bar = CreateReader(sut)(foo);
+            bar.Should().NotBeNull();
             bar.Name.Should().Be(foo.Id.ToString());
 
             foo = new Foo { Id = 123 };
@@ -76,8 +77,7 @@
             Foo foo;
             Bar bar;
 
-            var sut = CreateSut<Foo, int, Bar, string>(_ => _.Id, _ => _.ToString(), _ => _.Name, int.Parse);
-
+            var sut = new PropertyToPropertyWithConversionAssociation<Foo, int, Bar, string>(_ => _.Id, _ => _.ToString(), _ => _.Name, _ => int.Parse(_));
 
             foo = new Foo { Id = 123 };
             bar = new Bar { Name = string.Empty };
@@ -85,28 +85,11 @@
             foo.Id.Should().Be(default(int));
         }
 
-        private static PropertyToPropertyAssociation<TSource, TTarget> CreateSut<TSource, TTarget, TProperty>(
-            Expression<Func<TSource, TProperty>> source,
-            Expression<Func<TTarget, TProperty>> target
-        )
+        private static Func<Foo, Bar> CreateReader(IMappingAssociation association)
         {
-            return new PropertyToPropertyAssociation<TSource, TTarget>(
-                new PropertyPart(source.GetProperty()),
-                new PropertyPart(target.GetProperty())
-            );
-        }
+            var factory = new MapperFactory(new TestMap(typeof(Foo), typeof(Bar), association));
 
-        private static PropertyToPropertyAssociation<TSource, TTarget> CreateSut<TSource, TSourceProperty, TTarget, TTargetProperty>(
-            Expression<Func<TSource, TSourceProperty>> source,
-            Func<TSourceProperty, TTargetProperty> converter,
-            Expression<Func<TTarget, TTargetProperty>> target,
-            Func<TTargetProperty, TSourceProperty> inverseConverter
-        )
-        {
-            return new PropertyToPropertyAssociation<TSource, TTarget>(
-                new PropertyPart(source.GetProperty(), converter),
-                new PropertyPart(target.GetProperty(), inverseConverter)
-            );
+            return _ => factory.GetReader<Foo, Bar>()(_, null);
         }
     }
 }

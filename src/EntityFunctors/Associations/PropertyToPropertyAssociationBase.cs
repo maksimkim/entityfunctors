@@ -1,14 +1,12 @@
 ﻿namespace EntityFunctors.Associations
 {
-    using System;
     using System.Diagnostics.Contracts;
     using System.Linq.Expressions;
     using System.Reflection;
-    using Cfg;
     using Extensions;
     using Fluent;
 
-    public class ExpressionToPropertyAssociation<TSource, TTarget, TProperty> 
+    public abstract class PropertyToPropertyAssociationBase<TSource, TTarget> 
         : IMappingAssociation, IAccessable
         where TSource : class
         where TTarget : class, new()
@@ -21,13 +19,13 @@
 
         public LambdaExpression Target { get; private set; }
 
-        public ExpressionToPropertyAssociation(Expression<Func<TSource, TProperty>> source, Expression<Func<TTarget, TProperty>> target)
+        protected PropertyToPropertyAssociationBase(LambdaExpression source, LambdaExpression target)
         {
             Contract.Assert(source != null);
             Contract.Assert(target != null);
-            Contract.Assert(source.ReturnType == target.ReturnType);
             
             PropertyInfo prop;
+            Contract.Assert(source.Body.TryGetProperty(out prop));
             Contract.Assert(target.Body.TryGetProperty(out prop));
 
             Source = source;
@@ -35,7 +33,7 @@
 
             Key = Target.GetProperty().GetName();
 
-            Direction = MappingDirection.Read;
+            Direction = MappingDirection.All;
         }
 
         public Expression BuildMapper(ParameterExpression @from, ParameterExpression to, ParameterExpression propertyKeys, IMappingRegistry registry)
@@ -45,21 +43,30 @@
 
             var direction = @from.Type == typeof(TTarget) ? MappingDirection.Write : MappingDirection.Read;
 
+            var donorAccessor = direction == MappingDirection.Write ? Target : Source;
+            var acceptorAccessor = direction == MappingDirection.Write ? Source : Target;
+
             if ((Direction & direction) != direction)
                 return Expression.Empty();
 
-            var donor =
-                direction == MappingDirection.Read
-                ? Source.Apply(@from)
-                : Target.Apply(@from);
+            var acceptor = acceptorAccessor.Apply(to);
+            var donor = (MemberExpression)donorAccessor.Apply(@from);
 
-            var aceptor =
-                direction == MappingDirection.Read
-                ? Target.Apply(to)
-                : Source.Apply(to);
+            Expression result = Expression.Assign(acceptor, BuildDonor(donor, direction));
 
-            return Expression.Assign(aceptor, donor);
+            if (direction == MappingDirection.Write && propertyKeys != null)
+                result = Expression.IfThen(
+                    Expression.OrElse(
+                        propertyKeys.CreateCheckForDefault(),
+                        propertyKeys.CreateContains(Expression.Constant(Key, typeof(string)))
+                    ),
+                    result
+                );
+
+            return result;
         }
+
+        protected abstract Expression BuildDonor(MemberExpression donorAccessor, MappingDirection direction);
 
         public void ReadOnly()
         {
@@ -68,9 +75,6 @@
 
         public void WriteOnly()
         {
-            if (!IsPropertyChain(Source))
-                throw new InvalidOperationException("Only property chain expression can be set writable");
-            
             Direction = MappingDirection.Write;
         }
 
@@ -81,9 +85,6 @@
 
         public void Write()
         {
-            if (!IsPropertyChain(Source))
-                throw new InvalidOperationException("Only property chain expression can be set writable");
-
             AddDirection(MappingDirection.Write);
         }
 
@@ -91,26 +92,6 @@
         {
             if ((Direction & val) != val)
                 Direction |= val;
-        }
-
-        private bool IsPropertyChain(LambdaExpression expression)
-        {
-            var current = expression.Body;
-
-            while (current != null)
-            {
-                PropertyInfo p;
-
-                if (current.NodeType == ExpressionType.Parameter)
-                    return true;
-                
-                if (!current.TryGetProperty(out p))
-                    return false;
-
-                current = (current as MemberExpression).Expression;
-            }
-
-            return true;
         }
     }
 }

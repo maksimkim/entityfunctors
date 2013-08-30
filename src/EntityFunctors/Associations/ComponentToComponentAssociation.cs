@@ -7,26 +7,46 @@
     using System.Reflection;
     using Cfg;
     using Extensions;
+    using Fluent;
 
-    public class ComponentToComponentAssociation<TSource, TTarget> : IAccessable, IExpandable, IMappingAssociation
+    public class ComponentToComponentAssociation<TSource, TSourceComponent, TTarget, TTargetComponent> 
+        : IMappingAssociation, IComponentAssociation, IAccessable, IExpandable
+        where TSource : class 
+        where TSourceComponent : class
+        where TTarget : class, new()
+        where TTargetComponent : class, new()
     {
-        public PropertyPart Source { get; private set; }
-
-        public PropertyPart Target { get; private set; }
+        public string Key { get; private set; }
 
         public MappingDirection Direction { get; private set; }
 
-        protected bool Expand { get; set; }
+        public LambdaExpression Source { get; private set; }
 
-        public ComponentToComponentAssociation(PropertyPart source, PropertyPart target)
+        public LambdaExpression Target { get; private set; }
+
+        public bool Expand { get; private set; }
+
+        public TypeMapKey ComponentKey { get; private set; }
+
+        public ComponentToComponentAssociation(Expression<Func<TSource, TSourceComponent>> source, Expression<Func<TTarget, TTargetComponent>> target)
         {
             Contract.Assert(source != null);
             Contract.Assert(target != null);
+            
+            PropertyInfo prop;
+            Contract.Assert(source.Body.TryGetProperty(out prop));
+            Contract.Assert(target.Body.TryGetProperty(out prop));
 
             Source = source;
             Target = target;
 
+            target.GetProperty();
+
+            Key = Target.GetProperty().GetName();
+
             Direction = MappingDirection.All;
+
+            ComponentKey = new TypeMapKey(Source.ReturnType, Target.ReturnType);
         }
 
         public Expression BuildMapper(ParameterExpression @from, ParameterExpression to, ParameterExpression propertyKeys, IMappingRegistry registry)
@@ -39,17 +59,14 @@
             if ((Direction & direction) != direction)
                 return Expression.Empty();
 
-            var partFrom = direction == MappingDirection.Write ? Target : Source;
-            var partTo = direction == MappingDirection.Write ? Source : Target;
+            var donorAccessor = direction == MappingDirection.Write ? Target : Source;
+            var acceptorAccessor = direction == MappingDirection.Write ? Source : Target;
 
-            var propFrom = Expression.Property(@from, partFrom.Property);
-            var propTo = Expression.Property(to, partTo.Property);
+            var propFrom = donorAccessor.Apply(@from);
+            var propTo = acceptorAccessor.Apply(to);
 
-            var typeFrom = partFrom.Property.PropertyType;
-            var typeTo = partTo.Property.PropertyType;
-
-            var varFrom = Expression.Variable(typeFrom);
-            var varTo = Expression.Variable(typeTo);
+            var varFrom = Expression.Variable(donorAccessor.ReturnType);
+            var varTo = Expression.Variable(acceptorAccessor.ReturnType);
 
             //todo: filter out expands
             var mapper = registry.GetMapper(varFrom, varTo, null);
@@ -57,10 +74,10 @@
             if (mapper == null)
                 throw new InvalidOperationException(string.Format(
                     "Component registration mapping {0} <--> {1} requires mapping for types {2} <--> {3} that wasn't found",
-                    typeof(TSource).Name + "." + Source.Property.Name,
-                    typeof(TTarget).Name + "." + Target.Property.Name,
-                    Source.Property.PropertyType,
-                    Target.Property.PropertyType
+                    typeof(TSource).Name + "." + Source.GetProperty().Name,
+                    typeof(TTarget).Name + "." + Target.GetProperty().Name,
+                    Source.ReturnType,
+                    Target.ReturnType
                 ));
 
             var body = new List<Expression>();
@@ -68,13 +85,13 @@
             if (direction == MappingDirection.Read)
             {
                 //create target object (only direct mapping: entity -> dto)
-                var ctor = typeTo.GetConstructor(Type.EmptyTypes);
+                var ctor = acceptorAccessor.ReturnType.GetConstructor(Type.EmptyTypes);
 
                 if (ctor == null)
                     throw new InvalidOperationException(string.Format(
                         "Type {0} must declare public parameterless constructor to be mapped from {1}",
-                        typeTo,
-                        typeFrom
+                        acceptorAccessor.ReturnType,
+                        donorAccessor.ReturnType
                     ));
 
                 body.Add(Expression.Assign(propTo, Expression.New(ctor)));
@@ -89,7 +106,7 @@
             var result = 
                 Expression.IfThenElse(
                     propFrom.CreateCheckForDefault(), 
-                    Expression.Assign(propTo, typeTo.GetDefaultExpression()), 
+                    Expression.Assign(propTo, acceptorAccessor.ReturnType.GetDefaultExpression()), 
                     Expression.Block(new[] {varFrom, varTo}, body)
                 );
 
@@ -98,7 +115,7 @@
 
             if (direction == MappingDirection.Read && Expand)
                 result = Expression.IfThen(
-                    propertyKeys.CreateContains(Expression.Constant(Config.ReflectionOptimizer.GetName(Target.Property), typeof(string))), 
+                    propertyKeys.CreateContains(Expression.Constant(Key, typeof(string))), 
                     result
                 );
 
@@ -106,7 +123,7 @@
                 result = Expression.IfThen(
                     Expression.OrElse(
                         propertyKeys.CreateCheckForDefault(),
-                        propertyKeys.CreateContains(Expression.Constant(Config.ReflectionOptimizer.GetName(Target.Property), typeof(string)))
+                        propertyKeys.CreateContains(Expression.Constant(Key, typeof(string)))
                     ),
                     result
                 );
@@ -114,27 +131,6 @@
             return result;
 
         }
-
-        public Expression Build(Expression arg)
-        {
-            return Expression.Property(arg, Source.Property);
-        }
-
-        public PropertyInfo TargetProperty
-        {
-            get { return Target.Property; }
-        }
-
-        public Expression Rewrite(Expression original, Expression replacement)
-        {
-            return Expression.Property(replacement, Source.Property);
-        }
-
-        public IEnumerable<TypeMapKey> ChildMapKeys
-        {
-            get { yield return new TypeMapKey(Source.Property.PropertyType, Target.Property.PropertyType); }
-        }
-
 
         public void ReadOnly()
         {

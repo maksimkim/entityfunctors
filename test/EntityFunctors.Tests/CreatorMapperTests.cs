@@ -138,7 +138,8 @@
                 new BazQuxMap()
             );
 
-            var sut = factory.GetCreator<Foo, Bar>();
+            //var sut = factory.GetCreator<Foo, Bar>();
+            var sut = factory.GetReader<Foo, Bar>();
 
             return sut;
         }

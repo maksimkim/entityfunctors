@@ -170,6 +170,27 @@
         }
 
         [Test]
+        public void TestCollectionMethodCall()
+        {
+            var sut = new ExpressionMapper(new FooBarCollectionMap());
+
+            var exp = sut.Map<Bar, Foo, bool>(_ => _.Names.Any(n => n.Length > 1));
+
+            exp.Should().NotBeNull();
+
+            exp.Compile()(new Foo
+            {
+                Bazes = new[]
+                {
+                    new Baz
+                    {
+                        Id = 20
+                    }
+                }
+            }).Should().BeTrue();
+        }
+
+        [Test]
         public void TestComponentCollectionBinary()
         {
             var sut = new ExpressionMapper(new FooBarMap(), new BazQuxMap());
@@ -214,7 +235,7 @@
         {
             public FooBarConversionMap()
             {
-                MapProperties(_ => _.Id, _ => _.ToString(), _ => _.Name, int.Parse);
+                MapProperties(_ => _.Id, _ => _.ToString(), _ => _.Name, _ => int.Parse(_));
                 MapProperties(_ => _.Ids, _ => _.Select(__ => __.ToString()), _ => _.Names, _ => _.Select(int.Parse));
             }
         }
@@ -224,6 +245,14 @@
             public FooBarExpressionMap()
             {
                 MapExpressionToProperty(_ => _.Component.Id.ToString(), _ => _.Name);
+            }
+        }
+
+        private class FooBarCollectionMap : TypeMap<Foo, Bar>
+        {
+            public FooBarCollectionMap()
+            {
+                MapCollections(_ => _.Bazes, _ => _.Names, _ => _.Id.ToString());
             }
         }
     }

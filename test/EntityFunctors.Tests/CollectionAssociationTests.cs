@@ -8,6 +8,7 @@
     using EntityFunctors.Extensions;
     using FluentAssertions;
     using Helpers;
+    using Mappers;
     using NUnit.Framework;
 
     [TestFixture]
@@ -25,17 +26,9 @@
                 Bazes = new[] { new Baz(), new Baz() }
             };
 
-            var bar = new Bar
-            {
-                Names = new[] { "a", "b" }
-            };
-
-            var before = bar.Names;
-
-            MapperBuilder.BuildMapper<Foo, Bar>(sut)(foo, bar);
-
+            var bar = CreateReader(sut)(foo);
+            bar.Should().NotBeNull();
             bar.Names.Should().NotBeNull();
-            bar.Names.Should().NotBeEquivalentTo(before);
         }
 
         [Test]
@@ -48,10 +41,8 @@
                 Bazes = new[] { new Baz { Id = 1 }, new Baz { Id = 2 } }
             };
 
-            var bar = new Bar();
-
-            MapperBuilder.BuildMapper<Foo, Bar>(sut)(foo, bar);
-
+            var bar = CreateReader(sut)(foo);
+            bar.Should().NotBeNull();
             bar.Names.Should().NotBeNull();
             bar.Names.Should().NotBeEmpty();
             bar.Names.Should().BeEquivalentTo(foo.Bazes.Select(_ => _.Id.ToString()));
@@ -67,12 +58,8 @@
                 Bazes = Enumerable.Empty<Baz>()
             };
 
-            var bar = new Bar
-            {
-                Names = new[] { "a", "b" }
-            };
-
-            MapperBuilder.BuildMapper<Foo, Bar>(sut)(foo, bar);
+            var bar = CreateReader(sut)(foo);
+            bar.Should().NotBeNull();
 
             bar.Names.Should().NotBeNull();
             bar.Names.Should().BeEmpty();
@@ -85,13 +72,8 @@
 
             var foo = new Foo();
 
-            var bar = new Bar
-            {
-                Names = new[] { "a", "b" }
-            };
-
-            MapperBuilder.BuildMapper<Foo, Bar>(sut)(foo, bar);
-
+            var bar = CreateReader(sut)(foo);
+            bar.Should().NotBeNull();
             bar.Names.Should().BeNull();
         }
 
@@ -112,17 +94,20 @@
             foo.Bazes.Should().BeNull();
         }
 
+        private static Func<Foo, Bar> CreateReader(IMappingAssociation association)
+        {
+            var factory = new MapperFactory(new TestMap(typeof(Foo), typeof(Bar), association));
+
+            return _ => factory.GetReader<Foo, Bar>()(_, null);
+        }
+
         private static IMappingAssociation CreateSut()
         {
             Expression<Func<Foo, IEnumerable<Baz>>> source = _ => _.Bazes;
 
             Expression<Func<Bar, IEnumerable<string>>> target = _ => _.Names;
 
-            return new CollectionAssociation<Foo, Bar>(
-                new PropertyPart(source.GetProperty()),
-                new PropertyPart(target.GetProperty()),
-                (Expression<Func<Baz, string>>) (_ => _.Id.ToString())
-            );
+            return new CollectionAssociation<Foo, Baz, Bar, string>(source, target, _ => _.Id.ToString());
         }
     }
 }

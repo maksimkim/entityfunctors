@@ -3,9 +3,9 @@
     using System;
     using System.Linq.Expressions;
     using EntityFunctors.Associations;
-    using EntityFunctors.Extensions;
     using FluentAssertions;
     using Helpers;
+    using Mappers;
     using NUnit.Framework;
 
     [TestFixture]
@@ -18,16 +18,14 @@
         {
             var foo = new Foo { Id = 10 };
 
-            var bar = new Bar { Id = 11 };
-
             Expression<Func<Foo, int>> source = _ => _.Id * _.Id;
 
-            var sut = CreateSut<Foo, Bar, int>(source, _ => _.Id);
-
-            MapperBuilder.BuildMapper<Foo, Bar>(sut)(foo, bar);
+            var sut = new ExpressionToPropertyAssociation<Foo, Bar, int>(source, _ => _.Id);
 
             var expected = source.Compile()(foo);
 
+            var bar = CreateReader(sut)(foo);
+            bar.Should().NotBeNull();
             bar.Id.Should().Be(expected);
         }
 
@@ -35,16 +33,15 @@
         public void TestStringMapping()
         {
             var foo = new Foo {Name = "123"};
-            var bar = new Bar {Id = 555};
 
             Expression<Func<Foo, int>> source = _ => _.Name.Length;
 
-            var sut = CreateSut<Foo, Bar, int>(source, _ => _.Id);
-
-            MapperBuilder.BuildMapper<Foo, Bar>(sut)(foo, bar);
+            var sut = new ExpressionToPropertyAssociation<Foo, Bar, int>(source, _ => _.Id);
 
             var expected = source.Compile()(foo);
 
+            var bar = CreateReader(sut)(foo);
+            bar.Should().NotBeNull();
             bar.Id.Should().Be(expected);
         }
 
@@ -53,14 +50,12 @@
         {
             var foo = new Foo { Id = 10 };
 
-            var bar = new Bar { Id = 11 };
-
             Expression<Func<Foo, int>> source = _ => _.Id * _.Id;
 
-            var sut = CreateSut<Foo, Bar, int>(source, _ => _.Id);
+            var sut = new ExpressionToPropertyAssociation<Foo, Bar, int>(source, _ => _.Id);
 
-            MapperBuilder.BuildMapper<Bar, Foo>(sut)(bar, foo);
-
+            var bar = CreateReader(sut)(foo);
+            bar.Should().NotBeNull();
             foo.Id.Should().Be(10);
         }
 
@@ -69,7 +64,7 @@
         {
             Expression<Func<Foo, int>> source = _ => _.Id * _.Id;
 
-            var sut = CreateSut<Foo, Bar, int>(source, _ => _.Id);
+            var sut = new ExpressionToPropertyAssociation<Foo, Bar, int>(source, _ => _.Id);
 
             ((Action) sut.Write).ShouldThrow<InvalidOperationException>();
         }
@@ -83,7 +78,7 @@
 
             Expression<Func<Foo, int>> source = _ => _.Component.Id;
 
-            var sut = CreateSut<Foo, Bar, int>(source, _ => _.Id);
+            var sut = new ExpressionToPropertyAssociation<Foo, Bar, int>(source, _ => _.Id);
 
             sut.Write();
 
@@ -91,13 +86,12 @@
 
             foo.Component.Id.Should().Be(11);
         }
-        
-        private ExpressionToPropertyAssociation<TSource, TTarget> CreateSut<TSource, TTarget, TProperty>(Expression<Func<TSource, TProperty>> source, Expression<Func<TTarget, TProperty>> target)
+
+        private static Func<Foo, Bar> CreateReader(IMappingAssociation association)
         {
-            return new ExpressionToPropertyAssociation<TSource, TTarget>(
-                source,
-                new PropertyPart(target.GetProperty())
-            );
+            var factory = new MapperFactory(new TestMap(typeof(Foo), typeof(Bar), association));
+
+            return _ => factory.GetReader<Foo, Bar>()(_, null);
         }
     }
 }

@@ -6,21 +6,22 @@
     using System.Linq.Expressions;
     using System.Reflection;
     using Associations;
+    using Cfg;
     using Extensions;
 
     public class ExpressionMapper : IExpressionMapper
     {
-        private readonly IDictionary<TypeMapKey, Dictionary<PropertyInfo, IMappingAssociation>> _associations;
+        private readonly IDictionary<TypeMapKey, Dictionary<string, IMappingAssociation>> _associations;
 
         public ExpressionMapper(IEnumerable<IAssociationProvider> providers)
         {
             _associations = providers.ToDictionary(
                 p => p.Key, 
                 p => p.Associations.ToDictionary(
-                    a => a.TargetProperty, 
+                    a => a.Key, 
                     a => a
-                    )
-                );
+                )
+            );
         }
 
         public ExpressionMapper(params IAssociationProvider[] providers)
@@ -46,7 +47,7 @@
 
         public Expression Map(Expression expression, Type sourceType, Type targetType)
         {
-            Dictionary<PropertyInfo, IMappingAssociation> assocs;
+            Dictionary<string, IMappingAssociation> assocs;
 
             if (!_associations.TryGetValue(new TypeMapKey(sourceType, targetType), out assocs))
                 throw new InvalidOperationException(string.Format("Mapping from type {0} to type {1} is not configured", sourceType, targetType));
@@ -98,23 +99,24 @@
             {
                 var instance = base.Visit(node.Expression);
 
-                PropertyInfo prop;
-
-                IMappingAssociation assoc;
+                Dictionary<string, IMappingAssociation> associations;
                 
-                if (!(node.TryGetProperty(out prop) && _ctx.Associations.TryGetValue(prop, out assoc)))
+                IMappingAssociation assoc;
+                PropertyInfo prop;
+                IComponentAssociation component;
+
+                if (!(
+                    node.Expression.TryGetProperty(out prop)
+                    && _ctx.Associations.TryGetValue(prop.GetName(), out assoc)
+                    && (component = assoc as IComponentAssociation) != null
+                    && (_mapper._associations.TryGetValue(component.ComponentKey, out associations))
+                ))
+                    associations = _ctx.Associations;
+
+                if (!(node.TryGetProperty(out prop) && associations.TryGetValue(prop.GetName(), out assoc)))
                     return node.Update(instance);
 
-                if (assoc.ChildMapKeys.Any())
-                    foreach (var pair in assoc
-                        .ChildMapKeys
-                        .Where(key => _mapper._associations.ContainsKey(key))
-                        .SelectMany(key => _mapper._associations[key])
-                        .Where(p => !_ctx.Associations.ContainsKey(p.Key))
-                        )
-                        _ctx.Associations.Add(pair.Key, pair.Value);
-
-                return assoc.Build(instance);
+                return assoc.Source.Apply(instance);
             }
 
             protected override Expression VisitBinary(BinaryExpression node)
@@ -137,23 +139,27 @@
 
                 PropertyInfo prop;
                 IMappingAssociation assoc;
+                IConvertionAssociation converter;
 
                 if (!(
-                    (
-                        leftIsConstant && node.Right.TryGetProperty(out prop)
+                        (
+                            leftIsConstant && node.Right.TryGetProperty(out prop)
                             ||
                             rightIsConstant && node.Left.TryGetProperty(out prop)
                         )
                         &&
-                        _ctx.Associations.TryGetValue(prop, out assoc)
+                        _ctx.Associations.TryGetValue(prop.GetName(), out assoc)
+                        &&
+                        (converter = (assoc as IConvertionAssociation)) != null
                     ))
                     throw new InvalidOperationException();
 
+
                 if (leftIsConstant)
-                    left = assoc.Build(left);
+                    left = Expression.Constant(converter.TargetConverter.UntypedLambda((left as ConstantExpression).Value));
 
                 if (rightIsConstant)
-                    right = assoc.Build(right);
+                    right = Expression.Constant(converter.TargetConverter.UntypedLambda((right as ConstantExpression).Value));
 
                 return Expression.MakeBinary(node.NodeType, left, right);
             }
@@ -162,45 +168,56 @@
             {
                 var instance = Visit(node.Object);
 
-                PropertyInfo prop;
+                PropertyInfo collectionProp;
                 IMappingAssociation assoc = null;
-                TypeMapKey childMapKey = null;
+                ICollectionAssociation collection = null;
+                Type itemType = null;
 
-                if (node.Arguments.Any(a => 
-                    a.TryGetProperty(out prop) 
-                        && _ctx.Associations.TryGetValue(prop, out assoc)
-                        && assoc.ChildMapKeys.Any()
+                if (node.Arguments.Any(a =>
+                    a.TryGetProperty(out collectionProp) //it's a property
+                        && _ctx.Associations.TryGetValue(collectionProp.GetName(), out assoc) //it's a collection property
+                        && (collection = assoc as ICollectionAssociation) != null
                     ))
-                    childMapKey = assoc.ChildMapKeys.First();
+                {
+                    itemType = collection.TargetItemType;
+                }
+
+                
 
                 var args = node.Arguments.Select(a =>
                 {
                     var lambda = a as LambdaExpression;
 
-                    Type paramType;
-
-                    if (lambda != null
-                        && childMapKey != null
-                        && lambda.Parameters.Count == 1
-                        && ((paramType = lambda.Parameters[0].Type) != null)
-                        && (paramType == childMapKey.Low || paramType == childMapKey.High)
-                        )
+                    if (itemType != null && assoc != null && lambda != null && lambda.Parameters.Count == 1 && ((lambda.Parameters[0].Type) == itemType))
                     {
-                        var ctx = new MapContext
+                        var component = assoc as IComponentAssociation;
+                        if ((component != null) && (itemType == component.ComponentKey.Low || itemType == component.ComponentKey.High))
                         {
-                            From = paramType,
-                            To = paramType == childMapKey.Low ? childMapKey.High : childMapKey.Low,
-                            Associations = _mapper._associations[childMapKey]
-                        };
+                            var ctx = new MapContext
+                            {
+                                From = itemType,
+                                To = itemType == component.ComponentKey.Low ? component.ComponentKey.High : component.ComponentKey.Low,
+                                Associations = _mapper._associations[component.ComponentKey]
+                            };
 
-                        var preserved = _ctx;
-                        _ctx = ctx;
-                        var result = Visit(a);
-                        _ctx = preserved;
+                            var preserved = _ctx;
+                            _ctx = ctx;
+                            var result = Visit(lambda);
+                            _ctx = preserved;
 
-                        return result;
+                            return result;
+                        }
+
+                        var converter = assoc as IConvertionAssociation;
+                        LambdaExpression conversion;
+                        if (converter != null && itemType == (conversion = converter.TargetConverter.Expression).ReturnType)
+                        {
+                            var body = lambda.Apply(conversion.Body);
+
+                            return Expression.Lambda(body, conversion.Parameters[0]);
+                        }
                     }
-                    
+
                     return Visit(a);
                 }).ToArray();
 
@@ -238,7 +255,7 @@
 
             public Type To { get; set; }
 
-            public IDictionary<PropertyInfo, IMappingAssociation> Associations { get; set; }
+            public Dictionary<string, IMappingAssociation> Associations { get; set; }
 
             public ParameterExpression Parameter
             {

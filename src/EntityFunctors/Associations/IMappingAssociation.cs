@@ -1,24 +1,20 @@
 ﻿namespace EntityFunctors.Associations
 {
-    using System.Collections.Generic;
     using System.Diagnostics.Contracts;
     using System.Linq.Expressions;
-    using System.Reflection;
 
     [ContractClass(typeof (ContactForMappingAssociation))]
     public interface IMappingAssociation
     {
         Expression BuildMapper(ParameterExpression @from, ParameterExpression to, ParameterExpression propertyKeys, IMappingRegistry registry);
 
-        Expression Build(Expression arg);
-
-        PropertyInfo TargetProperty { get; }
+        string Key { get; }
 
         MappingDirection Direction { get; }
 
-        Expression Rewrite(Expression original, Expression replacement);
+        LambdaExpression Source { get; }
 
-        IEnumerable<TypeMapKey> ChildMapKeys { get; }
+        LambdaExpression Target { get; }
     }
 
     [ContractClassFor(typeof(IMappingAssociation))]
@@ -33,31 +29,21 @@
             return null;
         }
 
-        public Expression Build(Expression arg)
-        {
-            Contract.Assert(arg != null);
-
-            return null;
-        }
-
-        public PropertyInfo TargetProperty
+        public string Key
         {
             get { return null; }
         }
 
-        public Expression Rewrite(Expression original, Expression replacement)
-        {
-            Contract.Assert(original != null);
-            Contract.Assert(replacement != null);
-            
-            return null;
-        }
-
-        public IEnumerable<TypeMapKey> ChildMapKeys
-        {
-            get { yield break; }
-        }
-
         public MappingDirection Direction { get; private set; }
+
+        public LambdaExpression Source
+        {
+            get { return null; }
+        }
+
+        public LambdaExpression Target
+        {
+            get { return null; }
+        }
     }
 }

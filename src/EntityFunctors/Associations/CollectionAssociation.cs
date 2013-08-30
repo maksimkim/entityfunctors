@@ -6,29 +6,32 @@
     using System.Linq.Expressions;
     using Extensions;
 
-    public class CollectionAssociation<TSource, TTarget> : CollectionAssociationBase<TSource, TTarget>
+    public class CollectionAssociation<TSource, TSourceItem, TTarget, TTargetItem> 
+        : CollectionAssociationBase<TSource, TSourceItem, TTarget, TTargetItem>, IConvertionAssociation
+        where TSource : class
+        where TTarget : class, new()
     {
-        public LambdaExpression Converter { get; private set; }
+        public ConverterInfo SourceConverter 
+        { 
+            get
+            {
+                throw new InvalidOperationException();
+            } 
+        }
 
-        public CollectionAssociation(PropertyPart source, PropertyPart target, LambdaExpression converter) 
+        public ConverterInfo TargetConverter { get; private set; }
+
+        public CollectionAssociation(Expression<Func<TSource, IEnumerable<TSourceItem>>> source, Expression<Func<TTarget, IEnumerable<TTargetItem>>> target, Expression<Func<TSourceItem, TTargetItem>> converter)
             : base(source, target)
         {
             Contract.Assert(converter != null);
-            Contract.Assert(converter.Parameters.Count == 1);
-            Contract.Assert(converter.Parameters[0].Type == source.Property.PropertyType.GetItemType());
-            Contract.Assert(converter.ReturnType == target.Property.PropertyType.GetItemType());
-            
-            Converter = converter;
-        }
 
-        public override IEnumerable<TypeMapKey> ChildMapKeys
-        {
-            get { yield break;}
+            TargetConverter = new ConverterInfo(converter);
         }
 
         protected override LambdaExpression CreateSelector(Type @from, Type to, ParameterExpression expands, IMappingRegistry registry)
         {
-            return Converter;
+            return TargetConverter.Expression;
         }
     }
 }

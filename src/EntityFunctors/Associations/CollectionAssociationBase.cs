@@ -6,25 +6,40 @@
     using System.Linq;
     using System.Linq.Expressions;
     using System.Reflection;
-    using Cfg;
     using Extensions;
+    using Fluent;
 
-    public abstract class CollectionAssociationBase<TSource, TTarget> : IExpandable, IMappingAssociation
+    public abstract class CollectionAssociationBase<TSource, TSourceItem, TTarget, TTargetItem> 
+        : IMappingAssociation, ICollectionAssociation, IExpandable
+        where TSource : class
+        where TTarget : class, new()
     {
         private static readonly MethodInfo ToArray;
 
         private static readonly MethodInfo Select;
 
-        public PropertyPart Source { get; private set; }
-
-        public PropertyPart Target { get; private set; }
+        public string Key { get; private set; }
 
         public MappingDirection Direction
         {
             get { return MappingDirection.Read; }
         }
 
-        protected string Expand { get; set; }
+        public LambdaExpression Source { get; private set; }
+
+        public LambdaExpression Target { get; private set; }
+
+        public Type SourceItemType
+        {
+            get { return typeof(TSourceItem); }
+        }
+
+        public Type TargetItemType 
+        {
+            get { return typeof(TTargetItem); }
+        }
+
+        public bool Expand { get; private set; }
 
         static CollectionAssociationBase()
         {
@@ -35,25 +50,22 @@
             Select = ((MethodCallExpression)((MethodCallExpression)exp.Body).Arguments[0]).Method.GetGenericMethodDefinition();
         }
 
-        protected CollectionAssociationBase(PropertyPart source, PropertyPart target)
+        protected CollectionAssociationBase(
+            Expression<Func<TSource, IEnumerable<TSourceItem>>> source,
+            Expression<Func<TTarget, IEnumerable<TTargetItem>>> target
+        )
         {
             Contract.Assert(source != null);
             Contract.Assert(target != null);
 
-            var propTarget = target.Property;
-
-            if (!(propTarget.PropertyType.IsGenericType && propTarget.PropertyType.GetGenericTypeDefinition() == typeof(IEnumerable<>)))
-                throw new InvalidOperationException(
-                    string.Format(
-                        "Collection mapping supports only IEnumerable<T> type for target property {0} but found {1}",
-                        typeof(TTarget).Name + "." + propTarget.Name,
-                        propTarget.PropertyType
-                        )
-                    );
-
-            Target = target;
+            PropertyInfo prop;
+            Contract.Assert(source.Body.TryGetProperty(out prop));
+            Contract.Assert(target.Body.TryGetProperty(out prop));
 
             Source = source;
+            Target = target;
+
+            Key = Target.GetProperty().GetName();
         }
 
         public virtual Expression BuildMapper(ParameterExpression @from, ParameterExpression to, ParameterExpression propertyKeys, IMappingRegistry registry)
@@ -61,63 +73,43 @@
             if (!(@from.Type == typeof(TSource) && to.Type == typeof(TTarget)))
                 return Expression.Empty();
 
-            var propFrom = Expression.Property(@from, Source.Property);
-            var propTo = Expression.Property(to, Target.Property);
-
-            var itemTypeFrom = Source.Property.PropertyType.GetItemType();
-            var itemTypeTo = Target.Property.PropertyType.GetItemType();
+            var donor = Source.Apply(@from);
+            var acceptor = Target.Apply(to);
 
             Expression mapper = Expression.Assign(
-                propTo,
+                acceptor,
                 Expression.Condition(
-                    propFrom.CreateCheckForDefault(),
-                    Target.Property.PropertyType.GetDefaultExpression(),
+                    donor.CreateCheckForDefault(),
+                    Target.ReturnType.GetDefaultExpression(),
                     Expression.Convert(
                         Expression.Call(
-                            ToArray.MakeGenericMethod(itemTypeTo),
+                            ToArray.MakeGenericMethod(TargetItemType),
                             Expression.Call(
-                                Select.MakeGenericMethod(itemTypeFrom, itemTypeTo),
-                                propFrom,
-                                CreateSelector(itemTypeFrom, itemTypeTo, propertyKeys, registry)
+                                Select.MakeGenericMethod(SourceItemType, TargetItemType),
+                                donor,
+                                CreateSelector(SourceItemType, TargetItemType, propertyKeys, registry)
                             )
                         ),
-                        Target.Property.PropertyType
+                        Target.ReturnType
                     )
                 )
             );
 
-            if (propertyKeys != null && !string.IsNullOrWhiteSpace(Expand))
+            if (propertyKeys != null && Expand)
                 mapper =
                     Expression.IfThen(
-                        propertyKeys.CreateContains(Expression.Constant(Expand, typeof(string))),
+                        propertyKeys.CreateContains(Expression.Constant(Key, typeof(string))),
                         mapper
                     );
 
             return mapper;
         }
 
-        public Expression Build(Expression arg)
-        {
-            return Expression.Property(arg, Source.Property);
-        }
-
-        public PropertyInfo TargetProperty
-        {
-            get { return Target.Property; }
-        }
-
-        public Expression Rewrite(Expression original, Expression replacement)
-        {
-            return Expression.Property(replacement, Source.Property);
-        }
-
-        public abstract IEnumerable<TypeMapKey> ChildMapKeys { get; }
-
         protected abstract LambdaExpression CreateSelector(Type @from, Type to, ParameterExpression expands, IMappingRegistry registry);
 
         public void Expandable()
         {
-            Expand = Config.ReflectionOptimizer.GetName(Target.Property);
+            Expand = true;
         }
     }
 }

@@ -8,6 +8,8 @@
 
         public string Name { get; set; }
 
+        public int OrderNo { get; set; }
+
         public Baz Component { get; set; }
 
         public IEnumerable<Baz> Bazes { get; set; }

@@ -6,6 +6,7 @@
     using System.Linq;
     using System.Linq.Expressions;
     using System.Reflection;
+    using Expressions;
 
     public static class ExpressionExtensions
     {
@@ -34,6 +35,11 @@
 
             Expression<Func<bool>> exContains = () => Enumerable.Empty<bool>().Contains(false);
             ContainsBase = (exContains.Body as MethodCallExpression).Method.GetGenericMethodDefinition();
+        }
+
+        public static Expression Apply(this LambdaExpression lamba, Expression parameter)
+        {
+            return new ParameterReplacer().Replace(lamba, parameter);
         }
         
         public static PropertyInfo GetProperty(this LambdaExpression expression)
@@ -106,6 +112,30 @@
             {
                 yield return current;
                 current = current.BaseType;
+            }
+        }
+
+        public class ParameterReplacer : ExpressionVisitor
+        {
+            private ParameterExpression _from;
+
+            private Expression _to;
+
+            public Expression Replace(LambdaExpression lamba, Expression replacement)
+            {
+                Contract.Assert(lamba != null);
+                Contract.Assert(lamba.Parameters.Count == 1);
+                Contract.Assert(replacement != null);
+
+                _from = lamba.Parameters[0];
+                _to = replacement;
+                
+                return Visit(lamba.Body);
+            }
+
+            protected override Expression VisitParameter(ParameterExpression node)
+            {
+                return node == _from ? _to : base.VisitParameter(node);
             }
         }
     }
