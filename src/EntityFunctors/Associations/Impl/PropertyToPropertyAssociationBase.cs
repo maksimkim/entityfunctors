@@ -1,10 +1,10 @@
-﻿namespace EntityFunctors.Associations
+﻿namespace EntityFunctors.Associations.Impl
 {
     using System.Diagnostics.Contracts;
     using System.Linq.Expressions;
     using System.Reflection;
-    using Extensions;
-    using Fluent;
+    using EntityFunctors.Extensions;
+    using EntityFunctors.Associations.Fluent;
 
     public abstract class PropertyToPropertyAssociationBase<TSource, TTarget> 
         : IMappingAssociation, IAccessable
@@ -34,36 +34,6 @@
             Key = Target.GetProperty().GetName();
 
             Direction = MappingDirection.All;
-        }
-
-        public Expression BuildMapper(ParameterExpression @from, ParameterExpression to, ParameterExpression propertyKeys, IMappingRegistry registry)
-        {
-            Contract.Assert(@from.Type == typeof(TSource) || @from.Type == typeof(TTarget));
-            Contract.Assert(to.Type == typeof(TSource) || to.Type == typeof(TTarget));
-
-            var direction = @from.Type == typeof(TTarget) ? MappingDirection.Write : MappingDirection.Read;
-
-            var donorAccessor = direction == MappingDirection.Write ? Target : Source;
-            var acceptorAccessor = direction == MappingDirection.Write ? Source : Target;
-
-            if ((Direction & direction) != direction)
-                return Expression.Empty();
-
-            var acceptor = acceptorAccessor.Apply(to);
-            var donor = (MemberExpression)donorAccessor.Apply(@from);
-
-            Expression result = Expression.Assign(acceptor, BuildDonor(donor, direction));
-
-            if (direction == MappingDirection.Write && propertyKeys != null)
-                result = Expression.IfThen(
-                    Expression.OrElse(
-                        propertyKeys.CreateCheckForDefault(),
-                        propertyKeys.CreateContains(Expression.Constant(Key, typeof(string)))
-                    ),
-                    result
-                );
-
-            return result;
         }
 
         protected abstract Expression BuildDonor(MemberExpression donorAccessor, MappingDirection direction);

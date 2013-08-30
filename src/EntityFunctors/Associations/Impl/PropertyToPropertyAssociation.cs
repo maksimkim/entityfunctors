@@ -1,4 +1,4 @@
-﻿namespace EntityFunctors.Associations
+﻿namespace EntityFunctors.Associations.Impl
 {
     using System;
     using System.Linq.Expressions;

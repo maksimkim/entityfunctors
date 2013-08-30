@@ -1,12 +1,11 @@
-﻿namespace EntityFunctors.Associations
+﻿namespace EntityFunctors.Associations.Impl
 {
     using System;
     using System.Diagnostics.Contracts;
     using System.Linq.Expressions;
     using System.Reflection;
-    using Cfg;
-    using Extensions;
-    using Fluent;
+    using EntityFunctors.Extensions;
+    using EntityFunctors.Associations.Fluent;
 
     public class ExpressionToPropertyAssociation<TSource, TTarget, TProperty> 
         : IMappingAssociation, IAccessable
@@ -36,29 +35,6 @@
             Key = Target.GetProperty().GetName();
 
             Direction = MappingDirection.Read;
-        }
-
-        public Expression BuildMapper(ParameterExpression @from, ParameterExpression to, ParameterExpression propertyKeys, IMappingRegistry registry)
-        {
-            Contract.Assert(@from.Type == typeof(TSource) || @from.Type == typeof(TTarget));
-            Contract.Assert(to.Type == typeof(TSource) || to.Type == typeof(TTarget));
-
-            var direction = @from.Type == typeof(TTarget) ? MappingDirection.Write : MappingDirection.Read;
-
-            if ((Direction & direction) != direction)
-                return Expression.Empty();
-
-            var donor =
-                direction == MappingDirection.Read
-                ? Source.Apply(@from)
-                : Target.Apply(@from);
-
-            var aceptor =
-                direction == MappingDirection.Read
-                ? Target.Apply(to)
-                : Source.Apply(to);
-
-            return Expression.Assign(aceptor, donor);
         }
 
         public void ReadOnly()

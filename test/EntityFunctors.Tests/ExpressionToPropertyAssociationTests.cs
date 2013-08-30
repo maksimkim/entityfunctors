@@ -2,6 +2,7 @@
 {
     using System;
     using System.Linq.Expressions;
+    using Associations.Impl;
     using EntityFunctors.Associations;
     using FluentAssertions;
     using Helpers;
@@ -11,8 +12,6 @@
     [TestFixture]
     public class ExpressionToPropertyAssociationTests
     {
-        private static readonly MapperBuilder MapperBuilder = new MapperBuilder();
-        
         [Test]
         public void TestIntMapping()
         {
@@ -82,7 +81,7 @@
 
             sut.Write();
 
-            MapperBuilder.BuildMapper<Bar, Foo>(sut)(bar, foo);
+            CreateWriter(sut)(bar, foo);
 
             foo.Component.Id.Should().Be(11);
         }
@@ -92,6 +91,13 @@
             var factory = new MapperFactory(new TestMap(typeof(Foo), typeof(Bar), association));
 
             return _ => factory.GetReader<Foo, Bar>()(_, null);
+        }
+
+        private static Action<Bar, Foo> CreateWriter(IMappingAssociation association)
+        {
+            var factory = new MapperFactory(new TestMap(typeof(Foo), typeof(Bar), association));
+
+            return (source, target) => factory.GetWriter<Bar, Foo>()(source, target, null);
         }
     }
 }

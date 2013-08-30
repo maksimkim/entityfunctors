@@ -46,12 +46,12 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Associations\CollectionAssociation.cs" />
-    <Compile Include="Associations\CollectionAssociationBase.cs" />
-    <Compile Include="Associations\ComponentCollectionAssociation.cs" />
-    <Compile Include="Associations\ComponentToComponentAssociation.cs" />
+    <Compile Include="Associations\Impl\CollectionAssociation.cs" />
+    <Compile Include="Associations\Impl\CollectionAssociationBase.cs" />
+    <Compile Include="Associations\Impl\ComponentCollectionAssociation.cs" />
+    <Compile Include="Associations\Impl\ComponentToComponentAssociation.cs" />
     <Compile Include="Associations\ConverterInfo.cs" />
-    <Compile Include="Associations\ExpressionToPropertyAssociation.cs" />
+    <Compile Include="Associations\Impl\ExpressionToPropertyAssociation.cs" />
     <Compile Include="Associations\Fluent\IAccessable.cs" />
     <Compile Include="Associations\IAssociationProvider.cs" />
     <Compile Include="Associations\ICollectionAssociation.cs" />
@@ -60,20 +60,19 @@
     <Compile Include="Associations\Fluent\IExpandable.cs" />
     <Compile Include="Associations\IExpandableAssociation.cs" />
     <Compile Include="Associations\IMappingAssociation.cs" />
-    <Compile Include="Associations\PropertyToPropertyAssociationBase.cs" />
-    <Compile Include="Associations\PropertyToPropertyWithConversionAssociation.cs" />
+    <Compile Include="Associations\Impl\PropertyToPropertyAssociationBase.cs" />
+    <Compile Include="Associations\Impl\PropertyToPropertyWithConversionAssociation.cs" />
     <Compile Include="Cfg\Config.cs" />
     <Compile Include="Cfg\DefaultReflectionOptimizer.cs" />
     <Compile Include="Cfg\IReflectionOptimizer.cs" />
     <Compile Include="Associations\MappingDirection.cs" />
-    <Compile Include="Associations\PropertyToPropertyAssociation.cs" />
+    <Compile Include="Associations\Impl\PropertyToPropertyAssociation.cs" />
     <Compile Include="Expressions\ExpressionMapper.cs" />
     <Compile Include="Expressions\IExpressionMapper.cs" />
     <Compile Include="Extensions\ExpressionExtensions.cs" />
     <Compile Include="Extensions\PropertyExtensions.cs" />
     <Compile Include="Extensions\TypeExtensions.cs" />
     <Compile Include="Mappers\IMapperFactory.cs" />
-    <Compile Include="Associations\IMappingRegistry.cs" />
     <Compile Include="TypeMapKey.cs" />
     <Compile Include="Mappers\MapperFactory.cs" />
     <Compile Include="TypeMap.cs" />

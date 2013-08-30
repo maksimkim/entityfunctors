@@ -113,7 +113,8 @@
                 new BazQuxMap()
             );
 
-            var sut = factory.GetAssigner<Bar, Foo>();
+            //var sut = factory.GetAssigner<Bar, Foo>();
+            var sut = factory.GetWriter<Bar, Foo>();
 
             return sut;
         }

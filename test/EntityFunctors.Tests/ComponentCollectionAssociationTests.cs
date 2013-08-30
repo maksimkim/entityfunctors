@@ -2,19 +2,16 @@
 {
     using System;
     using System.Linq;
-    using System.Linq.Expressions;
     using Associations;
+    using Associations.Impl;
     using FluentAssertions;
     using Helpers;
     using Mappers;
-    using Moq;
     using NUnit.Framework;
 
     [TestFixture]
     public class ComponentCollectionAssociationTests
     {
-        private static readonly MapperBuilder MapperBuilder = new MapperBuilder();
-
         [Test]
         public void TestMappingCreatesTargetComponent()
         {
@@ -88,22 +85,9 @@
                 Quxes = new[] {new Qux(), new Qux()}
             };
 
-            MapperBuilder.BuildMapper<Bar, Foo>(sut, MockRegistry())(bar, foo);
+            CreateWriter(sut)(bar, foo);
 
             foo.Bazes.Should().BeNull();
-        }
-
-        private IMappingRegistry MockRegistry(Func<ParameterExpression, ParameterExpression, Expression> mapperFactory = null)
-        {
-            var mock = new Mock<IMappingRegistry>();
-
-            mapperFactory = mapperFactory ?? ((what, ever) => Expression.Empty());
-
-            mock
-                .Setup(r => r.GetMapper(It.IsAny<ParameterExpression>(), It.IsAny<ParameterExpression>(), It.IsAny<ParameterExpression>()))
-                .Returns<ParameterExpression, ParameterExpression, ParameterExpression>((w, hat, ever) => mapperFactory(w, hat));
-
-            return mock.Object;
         }
 
         private static Func<Foo, Bar> CreateReader(IMappingAssociation association)
@@ -124,6 +108,16 @@
             );
 
             return _ => factory.GetReader<Foo, Bar>()(_, null);
+        }
+
+        private static Action<Bar, Foo> CreateWriter(IMappingAssociation association)
+        {
+            var factory = new MapperFactory(
+                new TestMap(typeof(Foo), typeof(Bar), association),
+                new TestMap(typeof(Baz), typeof(Qux))
+            );
+
+            return (source, target) => factory.GetWriter<Bar, Foo>()(source, target, null);
         }
     }
 }

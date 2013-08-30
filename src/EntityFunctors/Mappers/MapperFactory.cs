@@ -10,19 +10,17 @@
     using Common.Logging;
     using EntityFunctors.Extensions;
 
-    public class MapperFactory : IMapperFactory, IMappingRegistry
+    public class MapperFactory : IMapperFactory
     {
         private static readonly ILog Logger = LogManager.GetCurrentClassLogger();
 
         private static readonly MethodInfo ToArray;
 
         private static readonly MethodInfo Select;
-       
-        private readonly IDictionary<TypeMapKey, IEnumerable<IMappingAssociation>> _maps;
 
         private readonly ConcurrentDictionary<Tuple<Type, Type>, Delegate> _readerCache = new ConcurrentDictionary<Tuple<Type, Type>, Delegate>();
 
-        private readonly ConcurrentDictionary<Tuple<Type, Type>, Delegate> _assignerCache = new ConcurrentDictionary<Tuple<Type, Type>, Delegate>();
+        private readonly ConcurrentDictionary<Tuple<Type, Type>, Delegate> _writerCache = new ConcurrentDictionary<Tuple<Type, Type>, Delegate>();
         
         private readonly IDictionary<TypeMapKey, IEnumerable<IMappingAssociation>> _registry;
 
@@ -43,14 +41,13 @@
 
         public MapperFactory(IEnumerable<IAssociationProvider> providers)
         {
-            _maps = providers.ToDictionary(
-                   m => m.Key,
-                   m => m.Associations
-            );
+            providers.ToDictionary(
+                m => m.Key,
+                m => m.Associations
+                );
 
             _registry = providers.ToDictionary(p => p.Key, p => p.Associations);
         }
-
 
         public Func<TSource, IEnumerable<string>, TTarget> GetReader<TSource, TTarget>()
             where TTarget : class, new()
@@ -60,17 +57,13 @@
                 key =>
                 {
                     var from = Expression.Parameter(key.Item1, "from");
-                    var to = Expression.Variable(key.Item2, "to");
                     var expands = Expression.Parameter(typeof(IEnumerable<string>), "expands");
 
-                    var body = BuildReaderBody(from, to, expands);
+                    var body = BuildReaderBody(@from, key.Item2, expands);
 
-                    body.Add(to);
+                    var mapper = Expression.Lambda(body, @from, expands);
 
-                    var mapper = Expression.Lambda(Expression.Block(new[] { to }, body), @from, expands);
-                    //var mapper = Expression.Lambda(body, @from, expands);
-
-                    Logger.Debug(m => m("{0} --> {1} mapper built:", @from.Type, to.Type));
+                    Logger.Debug(m => m("{0} --> {1} mapper built:", key.Item1, key.Item2));
                     Logger.Debug(m => m("{0}", mapper.Stringify()));
 
                     return mapper.Compile();
@@ -80,51 +73,38 @@
             return (Func<TSource, IEnumerable<string>, TTarget>)val;
         }
 
-        private IList<Expression> BuildReaderBody(ParameterExpression from, ParameterExpression to, ParameterExpression propertyKeys)
+        private Expression BuildReaderBody(Expression @from, Type targetType, ParameterExpression expands)
         {
-            var mapKey = new TypeMapKey(from.Type, to.Type);
+            var mapKey = new TypeMapKey(from.Type, targetType);
 
             IEnumerable<IMappingAssociation> associations;
 
             if (!_registry.TryGetValue(mapKey, out associations))
                 throw new NotImplementedException(
-                    string.Format("Unable to create mapper from {0} to {1}. Check appropriate mappings exist and loaded.", from.Type, to.Type)
+                    string.Format("Unable to create mapper from {0} to {1}. Check appropriate mappings exist and loaded.", from.Type, targetType)
                 );
 
-            var body = new List<Expression>();
-            //var bindings = new List<MemberBinding>();
+            var bindings = new List<MemberBinding>();
 
-            //create target object (only direct mapping: entity -> dto)
-            var ctor = to.Type.GetConstructor(Type.EmptyTypes);
+            var ctor = targetType.GetConstructor(Type.EmptyTypes);
 
             if (ctor == null)
                 throw new InvalidOperationException(
-                    string.Format("Type {0} must declare public parameterless constructor to be mapped from {1}", to.Type, from.Type)
+                    string.Format("Type {0} must declare public parameterless constructor to be mapped from {1}", targetType, from.Type)
                 );
-
-            body.Add(Expression.Assign(to, Expression.New(ctor)));
 
             foreach (var association in associations)
             {
-                var item = BuildReaderItem(association, from, to, propertyKeys);
+                var item = BuildReaderItem(association, from, expands);
                 
                 if (item != null)
-                {
-                    body.Add(item);
-
-                    //bindings.Add(Expression.Bind(
-                    //    association.Target.GetProperty(),
-                    //    item
-                    //));
-                }
+                    bindings.Add(Expression.Bind(association.Target.GetProperty(), item));
             }
 
-            return body;
-
-            //return Expression.MemberInit(Expression.New(ctor), bindings);
+            return Expression.MemberInit(Expression.New(ctor), bindings);
         }
 
-        private Expression BuildReaderItem(IMappingAssociation association, ParameterExpression from, ParameterExpression to, ParameterExpression propertyKeys)
+        private Expression BuildReaderItem(IMappingAssociation association, Expression from, ParameterExpression expands)
         {
             if ((association.Direction & MappingDirection.Read) != MappingDirection.Read)
                 return null;
@@ -136,137 +116,103 @@
 
             Expression result;
 
-            var acceptor = association.Target.Apply(to);
             var donor = association.Source.Apply(from);
 
-            ParameterExpression componentFrom;
-            ParameterExpression componentTo;
+            var targetType = association.Target.ReturnType;
 
             if (collection != null)
             {
-                LambdaExpression selector = null;
+                LambdaExpression selector;
                 
+                //selector = new component { ... }
                 if (component != null)
                 {
-                    componentFrom = Expression.Parameter(collection.SourceItemType);
-                    componentTo = Expression.Variable(collection.TargetItemType);
+                    var param = Expression.Parameter(collection.SourceItemType);
 
                     //todo: probably should filterout expand somehow. E.g. 'foo.id' should become 'id'. Now simply not passing outer expand
-                    var componentMapper = BuildReaderBody(componentFrom, componentTo, null);
-                    componentMapper.Add(componentTo);
+                    var body = BuildReaderBody(param, collection.TargetItemType, null);
 
-                    selector = Expression.Lambda(
-                        Expression.Block(new[] { componentTo }, componentMapper),
-                        componentFrom
-                    );
+                    selector = Expression.Lambda(body, param);
                 }
-
-                if (converter != null)
+                //selector = converter
+                else if (converter != null)
                 {
                     selector = converter.TargetConverter.Expression;
                 }
-
-                if (selector == null)
+                else
                     throw new InvalidOperationException();
 
-                result = Expression.Assign(
-                    acceptor,
-                    Expression.Condition(
-                        donor.CreateCheckForDefault(),
-                        acceptor.Type.GetDefaultExpression(),
-                        Expression.Convert(
+                // from.prop.select(selector).toarray().asenumerable()
+                result = 
+                    Expression.Convert(
+                        Expression.Call(
+                            ToArray.MakeGenericMethod(collection.TargetItemType),
                             Expression.Call(
-                                ToArray.MakeGenericMethod(collection.TargetItemType),
-                                Expression.Call(
-                                    Select.MakeGenericMethod(collection.SourceItemType, collection.TargetItemType),
-                                    donor,
-                                    selector
-                                )
-                            ),
-                            acceptor.Type
-                        )
-                    )
-                );
+                                Select.MakeGenericMethod(collection.SourceItemType, collection.TargetItemType),
+                                donor,
+                                selector
+                            )
+                        ),
+                        targetType
+                    );
             }
             else
             {
+                // new component { .... }
                 if (component != null)
                 {
-                    componentFrom = Expression.Variable(association.Source.ReturnType);
-                    componentTo = Expression.Variable(association.Target.ReturnType);
-
                     //todo: probably should filterout expand somehow. E.g. 'foo.id' should become 'id'. Now simply not passing outer expand
-                    var componentMapper = BuildReaderBody(componentFrom, componentTo, null);
-                    componentMapper.Insert(0, Expression.Assign(componentFrom, donor));
-                    componentMapper.Add(Expression.Assign(acceptor, componentTo));
-
-                    result = Expression.IfThenElse(
-                        donor.CreateCheckForDefault(),
-                        Expression.Assign(acceptor, acceptor.Type.GetDefaultExpression()),
-                        Expression.Block(new[] { componentFrom, componentTo }, componentMapper)
-                    );
+                    result = BuildReaderBody(donor, targetType, null);
                 }
+                //-or- converter(from.prop)
+                else if (converter != null)
+                {
+                    result = converter.SourceConverter.Expression.Apply(donor);
+                }
+                // from.prop
                 else
                 {
-                    if (converter != null)
-                    {
-                        var conversion = converter.SourceConverter.Expression.Apply(donor);
-
-                        donor =
-                            donor.Type.IsValueType
-                            ? conversion
-                            : Expression.Condition(donor.CreateCheckForDefault(), acceptor.Type.GetDefaultExpression(), conversion);
-                    }
-
-                    result = Expression.Assign(acceptor, donor);
+                    result = donor;
                 }
             }
 
-            //result =
-            //    donor.Type.IsValueType
-            //    ? result
-            //    : Expression.Condition(
-            //        donor.CreateCheckForDefault(), 
-            //        acceptor.Type.GetDefaultExpression(), 
-            //        result
-            //    );
-
-            if (result != null && propertyKeys != null && expandable != null && expandable.Expand)
+            // expands.contains({key}) ? {exp} : null
+            if (result != null && expands != null && expandable != null && expandable.Expand)
             {
-                result = Expression.IfThen(
-                    propertyKeys.CreateContains(Expression.Constant(association.Key, typeof(string))),
+                result = Expression.Condition(
+                    expands.CreateContains(Expression.Constant(association.Key, typeof(string))),
+                    result,
+                    targetType.GetDefaultExpression()
+                );
+            }
+
+            // from.prop != null ? null : {exp}
+            if (!(donor.Type.IsValueType || result == donor))
+            {
+                result = Expression.Condition(
+                    donor.CreateCheckForDefault(),
+                    targetType.GetDefaultExpression(),
                     result
                 );
-
-                //result = Expression.Condition(
-                //    propertyKeys.CreateContains(Expression.Constant(association.Key, typeof(string))),
-                //    result,
-                //    acceptor.Type.GetDefaultExpression()
-                //);
             }
-                
 
             return result;
         }
 
-        public Action<TSource, TTarget, IEnumerable<string>> GetAssigner<TSource, TTarget>()
+        public Action<TSource, TTarget, IEnumerable<string>> GetWriter<TSource, TTarget>()
+            where TSource : class, new()
         {
-            var val = _assignerCache.GetOrAdd(
-                Tuple.Create(typeof(TSource), typeof(TTarget)), 
+            var val = _writerCache.GetOrAdd(
+                Tuple.Create(typeof(TSource), typeof(TTarget)),
                 key =>
                 {
                     var from = Expression.Parameter(key.Item1, "from");
                     var to = Expression.Parameter(key.Item2, "to");
                     var explicitProperties = Expression.Parameter(typeof(IEnumerable<string>), "explicitProperties");
 
-                    var body = BuildMapperBody(@from, to, explicitProperties);
+                    var body = BuildWriterBody(@from, to, explicitProperties);
 
-                    if (body == null)
-                        throw new NotImplementedException(
-                            string.Format("Unable to create mapper from {0} to {1}. Check appropriate mappings exist and loaded.", from.Type, to.Type)
-                        );
-
-                    var mapper = Expression.Lambda<Action<TSource, TTarget, IEnumerable<string>>>(body, from, to, explicitProperties);
+                    var mapper = Expression.Lambda(body, from, to, explicitProperties);
 
                     Logger.Debug(m => m("{0} --> {1} mapper built:", from.Type, to.Type));
                     Logger.Debug(m => m("{0}", mapper.Stringify()));
@@ -278,69 +224,79 @@
             return (Action<TSource, TTarget, IEnumerable<string>>)val;
         }
 
-        //public Action<TSource, TTarget, IEnumerable<string>> GetAssigner2<TSource, TTarget>()
-        //{
-        //    var key = new TypeMapKey(typeof(TSource), typeof(TTarget));
-
-        //    Dictionary<PropertyInfo, IMappingAssociation> associations;
-
-        //    if (!_associations.TryGetValue(key, out associations))
-        //        throw new NotImplementedException(
-        //            string.Format("Unable to create mapper from {0} to {1}. Check appropriate mappings exist and loaded.", typeof(TSource), typeof(TTarget))
-        //            );
-
-        //    //creator assumption
-        //    const MappingDirection direction = MappingDirection.Write;
-
-        //    var from = Expression.Parameter(typeof(TSource), "from");
-        //    var to = Expression.Parameter(typeof(TTarget), "to");
-        //    var explicitProperties = Expression.Parameter(typeof(IEnumerable<string>), "explicitProperties");
-
-        //    var body = new List<Expression>();
-
-        //    foreach (var association in associations.Values)
-        //    {
-        //        if ((association.Direction & direction) != direction)
-        //            continue;
-
-        //        var exp = Expression.Assign(association.Build(to), association.Build(@from));
-        //        body.Add(exp);
-        //    }
-
-        //    body.Add(to);
-
-        //    var mapper = Expression.Lambda<Action<TSource, TTarget, IEnumerable<string>>>(Expression.Block(body), from, to, explicitProperties);
-
-        //    Logger.Debug(m => m("{0} --> {1} mapper built:", from.Type, to.Type));
-        //    Logger.Debug(m => m("{0}", mapper.Stringify()));
-
-        //    return mapper.Compile();
-        //}
-
-        public Expression GetMapper(ParameterExpression @from, ParameterExpression to, ParameterExpression expands)
+        private Expression BuildWriterBody(Expression from, Expression to, ParameterExpression explicitProperties)
         {
-            return BuildMapperBody(@from, to, expands);
-        }
+            var mapKey = new TypeMapKey(@from.Type, to.Type);
 
-        public Expression BuildMapperBody(ParameterExpression @from, ParameterExpression to, ParameterExpression propertyKeys)
-        {
-            var key = new TypeMapKey(@from.Type, to.Type);
+            IEnumerable<IMappingAssociation> associations;
 
-            IEnumerable<IMappingAssociation> assocs;
+            if (!_registry.TryGetValue(mapKey, out associations))
+                throw new NotImplementedException(
+                    string.Format("Unable to create mapper from {0} to {1}. Check appropriate mappings exist and loaded.", @from.Type, to.Type)
+                    );
 
-            if (!_maps.TryGetValue(key, out assocs))
-                return null;
+            var body = new List<Expression>();
 
-            var statements =
-                assocs
-                .Select(a => a.BuildMapper(@from, to, propertyKeys, this))
-                .Where(e => !(e.NodeType == ExpressionType.Default && e.Type == typeof(void)))
-                .ToArray();
+            foreach (var association in associations)
+            {
+                var item = BuildWriterItem(association, @from, to, explicitProperties);
+
+                if (item != null)
+                    body.Add(item);
+            }
 
             return 
-                statements.Length == 0 
-                ? (Expression)Expression.Empty()
-                : Expression.Block(statements);
+                body.Count > 0 
+                ? (Expression)Expression.Block(body) 
+                : Expression.Empty();
+        }
+
+        private Expression BuildWriterItem(IMappingAssociation association, Expression from, Expression to, ParameterExpression explicitProperties)
+        {
+            if ((association.Direction & MappingDirection.Write) != MappingDirection.Write)
+                return null;
+
+            var converter = association as IConvertionAssociation;
+            var component = association as IComponentAssociation;
+
+            var donor = association.Target.Apply(@from);
+            var acceptor = association.Source.Apply(to);
+            
+            Expression result;
+
+            if (component != null)
+            {
+                //todo: probably should filterout expand somehow. E.g. 'foo.id' should become 'id'. Now simply not passing outer expand
+                result = BuildWriterBody(donor, acceptor, null);
+
+                if (result.NodeType == ExpressionType.Default && result.Type == typeof(void))
+                    return null;
+            }
+            else
+            {
+                result = Expression.Assign(
+                    acceptor, 
+                    converter == null ? donor : converter.TargetConverter.Expression.Apply(donor)
+                );
+            }
+
+            if (!(donor.Type.IsValueType || (result.NodeType == ExpressionType.Assign && ((BinaryExpression)result).Right == donor)))
+                result = Expression.IfThenElse(
+                    donor.CreateCheckForDefault(),
+                    Expression.Assign(acceptor, acceptor.Type.GetDefaultExpression()),
+                    result
+                );
+
+            if (explicitProperties != null)
+                result = Expression.IfThen(
+                    Expression.OrElse(
+                        explicitProperties.CreateCheckForDefault(),
+                        explicitProperties.CreateContains(Expression.Constant(association.Key, typeof(string)))
+                    ),
+                    result
+                );
+
+            return result;
         }
     }
 }

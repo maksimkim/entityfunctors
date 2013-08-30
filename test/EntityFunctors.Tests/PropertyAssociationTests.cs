@@ -2,6 +2,7 @@
 {
     using System;
     using System.Linq.Expressions;
+    using Associations.Impl;
     using EntityFunctors.Associations;
     using EntityFunctors.Extensions;
     using FluentAssertions;
@@ -12,8 +13,6 @@
     [TestFixture]
     public class PropertyAssociationTests
     {
-        private static readonly MapperBuilder MapperBuilder = new MapperBuilder();
-
         [Test]
         public void TestIntMapping()
         {
@@ -29,7 +28,7 @@
 
             foo = new Foo { Id = 5 };
             bar = new Bar { Id = 6 };
-            MapperBuilder.BuildMapper<Bar, Foo>(sut)(bar, foo);
+            CreateWriter(sut)(bar, foo);
             foo.Id.Should().Be(bar.Id);
         }
 
@@ -48,7 +47,7 @@
 
             foo = new Foo { Name = "aaa" };
             bar = new Bar { Name = "bbb" };
-            MapperBuilder.BuildMapper<Bar, Foo>(sut)(bar, foo);
+            CreateWriter(sut)(bar, foo);
             foo.Id.Should().Be(bar.Id);
         }
 
@@ -67,7 +66,7 @@
 
             foo = new Foo { Id = 123 };
             bar = new Bar { Name = "555" };
-            MapperBuilder.BuildMapper<Bar, Foo>(sut)(bar, foo);
+            CreateWriter(sut)(bar, foo);
             foo.Id.Should().Be(int.Parse(bar.Name));
         }
 
@@ -81,7 +80,7 @@
 
             foo = new Foo { Id = 123 };
             bar = new Bar { Name = string.Empty };
-            MapperBuilder.BuildMapper<Bar, Foo>(sut)(bar, foo);
+            CreateWriter(sut)(bar, foo);
             foo.Id.Should().Be(default(int));
         }
 
@@ -90,6 +89,13 @@
             var factory = new MapperFactory(new TestMap(typeof(Foo), typeof(Bar), association));
 
             return _ => factory.GetReader<Foo, Bar>()(_, null);
+        }
+
+        private static Action<Bar, Foo> CreateWriter(IMappingAssociation association)
+        {
+            var factory = new MapperFactory(new TestMap(typeof(Foo), typeof(Bar), association));
+
+            return (source, target) => factory.GetWriter<Bar, Foo>()(source, target, null);
         }
     }
 }

@@ -6,8 +6,6 @@
     [ContractClass(typeof (ContactForMappingAssociation))]
     public interface IMappingAssociation
     {
-        Expression BuildMapper(ParameterExpression @from, ParameterExpression to, ParameterExpression propertyKeys, IMappingRegistry registry);
-
         string Key { get; }
 
         MappingDirection Direction { get; }
@@ -20,15 +18,6 @@
     [ContractClassFor(typeof(IMappingAssociation))]
     public abstract class ContactForMappingAssociation : IMappingAssociation
     {
-        public Expression BuildMapper(ParameterExpression @from, ParameterExpression to, ParameterExpression propertyKeys, IMappingRegistry registry)
-        {
-            Contract.Assert(@from != null);
-            Contract.Assert(@to != null);
-            Contract.Assert(registry != null);
-
-            return null;
-        }
-
         public string Key
         {
             get { return null; }

@@ -6,6 +6,7 @@
     using System.Diagnostics.Contracts;
     using Associations;
     using Associations.Fluent;
+    using Associations.Impl;
     using Extensions;
 
     public class TypeMap<TSource, TTarget> : IAssociationProvider 

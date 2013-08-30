@@ -1,10 +1,9 @@
-﻿namespace EntityFunctors.Associations
+﻿namespace EntityFunctors.Associations.Impl
 {
     using System;
     using System.Diagnostics.Contracts;
     using System.Linq.Expressions;
-    using Expressions;
-    using Extensions;
+    using EntityFunctors.Extensions;
 
     public class PropertyToPropertyWithConversionAssociation<TSource, TSourceProperty, TTarget, TTargetProperty>
         : PropertyToPropertyAssociationBase<TSource, TTarget>, IConvertionAssociation 

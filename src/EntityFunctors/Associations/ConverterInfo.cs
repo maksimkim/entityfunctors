@@ -23,7 +23,6 @@
                 var inputType = Expression.Parameters[0].Type;
                 
                 var param = Exp.Parameter(typeof(object), "_");
-                //var typed = Exp.Variable(inputType);
                 var typed = Expression.Parameters[0];
                 var body = Expression.Apply(typed);
                 

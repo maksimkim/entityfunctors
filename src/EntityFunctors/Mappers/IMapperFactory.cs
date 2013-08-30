@@ -5,6 +5,10 @@
 
     public interface IMapperFactory
     {
-        Action<TSource, TTarget, IEnumerable<string>> GetAssigner<TSource, TTarget>();
+        Func<TSource, IEnumerable<string>, TTarget> GetReader<TSource, TTarget>()
+            where TTarget : class, new();
+
+        Action<TSource, TTarget, IEnumerable<string>> GetWriter<TSource, TTarget>()
+            where TSource: class, new();
     }
 }

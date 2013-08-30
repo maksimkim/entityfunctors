@@ -1,4 +1,4 @@
-﻿namespace EntityFunctors.Associations
+﻿namespace EntityFunctors.Associations.Impl
 {
     using System;
     using System.Collections.Generic;
@@ -6,8 +6,8 @@
     using System.Linq;
     using System.Linq.Expressions;
     using System.Reflection;
-    using Extensions;
-    using Fluent;
+    using EntityFunctors.Extensions;
+    using EntityFunctors.Associations.Fluent;
 
     public abstract class CollectionAssociationBase<TSource, TSourceItem, TTarget, TTargetItem> 
         : IMappingAssociation, ICollectionAssociation, IExpandable
@@ -67,45 +67,6 @@
 
             Key = Target.GetProperty().GetName();
         }
-
-        public virtual Expression BuildMapper(ParameterExpression @from, ParameterExpression to, ParameterExpression propertyKeys, IMappingRegistry registry)
-        {
-            if (!(@from.Type == typeof(TSource) && to.Type == typeof(TTarget)))
-                return Expression.Empty();
-
-            var donor = Source.Apply(@from);
-            var acceptor = Target.Apply(to);
-
-            Expression mapper = Expression.Assign(
-                acceptor,
-                Expression.Condition(
-                    donor.CreateCheckForDefault(),
-                    Target.ReturnType.GetDefaultExpression(),
-                    Expression.Convert(
-                        Expression.Call(
-                            ToArray.MakeGenericMethod(TargetItemType),
-                            Expression.Call(
-                                Select.MakeGenericMethod(SourceItemType, TargetItemType),
-                                donor,
-                                CreateSelector(SourceItemType, TargetItemType, propertyKeys, registry)
-                            )
-                        ),
-                        Target.ReturnType
-                    )
-                )
-            );
-
-            if (propertyKeys != null && Expand)
-                mapper =
-                    Expression.IfThen(
-                        propertyKeys.CreateContains(Expression.Constant(Key, typeof(string))),
-                        mapper
-                    );
-
-            return mapper;
-        }
-
-        protected abstract LambdaExpression CreateSelector(Type @from, Type to, ParameterExpression expands, IMappingRegistry registry);
 
         public void Expandable()
         {

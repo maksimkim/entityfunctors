@@ -60,10 +60,8 @@
     <Compile Include="Helpers\Bar.cs" />
     <Compile Include="Helpers\Baz.cs" />
     <Compile Include="Helpers\Foo.cs" />
-    <Compile Include="Helpers\MapperBuilder.cs" />
     <Compile Include="Helpers\Qux.cs" />
     <Compile Include="CreatorMapperTests.cs" />
-    <Compile Include="CreatorTests.cs" />
     <Compile Include="Helpers\TestMap.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="PropertyAssociationTests.cs" />
