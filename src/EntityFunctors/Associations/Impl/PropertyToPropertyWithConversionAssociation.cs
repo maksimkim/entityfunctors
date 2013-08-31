@@ -3,7 +3,6 @@
     using System;
     using System.Diagnostics.Contracts;
     using System.Linq.Expressions;
-    using EntityFunctors.Extensions;
 
     public class PropertyToPropertyWithConversionAssociation<TSource, TSourceProperty, TTarget, TTargetProperty>
         : PropertyToPropertyAssociationBase, IConvertionAssociation 
@@ -26,22 +25,6 @@
 
             SourceConverter = new ConverterInfo(sourceConverter);
             TargetConverter = new ConverterInfo(targetConverter);
-        }
-
-        protected override Expression BuildDonor(MemberExpression donorAccessor, MappingDirection direction)
-        {
-            var converter = (direction == MappingDirection.Read ? SourceConverter : TargetConverter).Expression;
-            
-            var conversion = converter.Apply(donorAccessor);
-
-            if (!donorAccessor.Type.IsValueType)
-                conversion = Expression.Condition(
-                    donorAccessor.CreateCheckForDefault(),
-                    conversion.Type.GetDefaultExpression(),
-                    conversion
-                );
-
-            return conversion;
         }
     }
 }

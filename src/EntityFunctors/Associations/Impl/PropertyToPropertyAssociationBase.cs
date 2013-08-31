@@ -34,8 +34,6 @@
             Direction = MappingDirection.All;
         }
 
-        protected abstract Expression BuildDonor(MemberExpression donorAccessor, MappingDirection direction);
-
         public void ReadOnly()
         {
             Direction = MappingDirection.Read;

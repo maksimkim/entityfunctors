@@ -11,10 +11,5 @@
             :base(source, target)
         {
         }
-
-        protected override Expression BuildDonor(MemberExpression donorAccessor, MappingDirection direction)
-        {
-            return donorAccessor;
-        }
     }
 }
