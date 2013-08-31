@@ -128,13 +128,12 @@
                 bool leftIsConstant;
                 bool rightIsConstant;
 
-                if (
-                    left.Type == right.Type
-                        ||
-                        ((leftIsConstant = (left.NodeType == ExpressionType.Constant)) && right.Type.IsAssignableFrom(left.Type))
-                        ||
-                        ((rightIsConstant = (right.NodeType == ExpressionType.Constant)) && left.Type.IsAssignableFrom(right.Type))
-                    )
+                if (left.Type == right.Type
+                    ||
+                    ((leftIsConstant = (left.NodeType == ExpressionType.Constant)) && right.Type.IsAssignableFrom(left.Type))
+                    ||
+                    ((rightIsConstant = (right.NodeType == ExpressionType.Constant)) && left.Type.IsAssignableFrom(right.Type))
+                )
                     return node.Update(left, conversion, right);
 
                 PropertyInfo prop;
@@ -175,14 +174,12 @@
 
                 if (node.Arguments.Any(a =>
                     a.TryGetProperty(out collectionProp) //it's a property
-                        && _ctx.Associations.TryGetValue(collectionProp.GetName(), out assoc) //it's a collection property
-                        && (collection = assoc as ICollectionAssociation) != null
-                    ))
+                    && _ctx.Associations.TryGetValue(collectionProp.GetName(), out assoc)
+                    && (collection = assoc as ICollectionAssociation) != null //it's a collection property
+                ))
                 {
                     itemType = collection.TargetItemType;
                 }
-
-                
 
                 var args = node.Arguments.Select(a =>
                 {
