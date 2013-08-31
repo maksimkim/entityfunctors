@@ -27,7 +27,6 @@
             Expression<Func<TTarget, TProperty>> target
         )
         {
-            //var association = new PropertyToPropertyAssociation<TSource, TTarget>(new PropertyPart(source.GetProperty()), new PropertyPart(target.GetProperty()));
             var association = new PropertyToPropertyAssociation<TSource, TTarget, TProperty>(source, target);
             _associations.Add(association);
             return association;
@@ -43,7 +42,6 @@
             Contract.Assert(converter != null);
             Contract.Assert(inverseConverter != null);
 
-            //var association = new PropertyToPropertyAssociation<TSource, TTarget>(new PropertyPart(source.GetProperty(), converter), new PropertyPart(target.GetProperty(), inverseConverter));
             var association = new PropertyToPropertyWithConversionAssociation<TSource, TSourceProperty, TTarget, TTargetProperty>(source, converter, target, inverseConverter);
             _associations.Add(association);
             return association;
@@ -56,7 +54,6 @@
         {
             Contract.Assert(source != null);
 
-            //var association = new ExpressionToPropertyAssociation<TSource, TTarget>(source, new PropertyPart(target.GetProperty()));
             var association = new ExpressionToPropertyAssociation<TSource, TTarget, TProperty>(source, target);
             _associations.Add(association);
         }
@@ -68,7 +65,6 @@
             where TSourceComponent : class 
             where TTargetComponent : class, new()
         {
-            //var association = new ComponentToComponentAssociation<TSource, TTarget>(new PropertyPart(source.GetProperty()), new PropertyPart(target.GetProperty()));
             var association = new ComponentToComponentAssociation<TSource, TSourceComponent, TTarget, TTargetComponent>(source, target);
             _associations.Add(association);
             return association;
@@ -82,7 +78,6 @@
         {
             Contract.Assert(converter != null);
 
-            //var association = new CollectionAssociation<TSource, TTarget>(new PropertyPart(source.GetProperty()), new PropertyPart(target.GetProperty()), converter);
             var association = new CollectionAssociation<TSource, TSourceItem, TTarget, TTargetItem>(source, target, converter);
             _associations.Add(association);
             return association;
@@ -95,7 +90,6 @@
             where TSourceItem : class 
             where TTargetItem : class, new()
         {
-            //var association = new ComponentCollectionAssociation<TSource, TTarget>(new PropertyPart(source.GetProperty()), new PropertyPart(target.GetProperty()));
             var association = new ComponentCollectionAssociation<TSource, TSourceItem, TTarget, TTargetItem>(source, target);
             _associations.Add(association);
             return association;
@@ -103,7 +97,6 @@
 
         public virtual TypeMapKey Key { get; protected set; }
         
-
         public IEnumerable<IMappingAssociation> Associations
         {
             get { return _associations; }

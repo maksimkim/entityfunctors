@@ -3,7 +3,7 @@
     using System;
     using System.Linq.Expressions;
 
-    public class PropertyToPropertyAssociation<TSource, TTarget, TProperty> : PropertyToPropertyAssociationBase<TSource, TTarget>
+    public class PropertyToPropertyAssociation<TSource, TTarget, TProperty> : PropertyToPropertyAssociationBase
         where TSource : class
         where TTarget : class, new() 
     {

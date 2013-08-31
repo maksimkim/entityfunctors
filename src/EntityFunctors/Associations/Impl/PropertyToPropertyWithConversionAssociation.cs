@@ -6,7 +6,7 @@
     using EntityFunctors.Extensions;
 
     public class PropertyToPropertyWithConversionAssociation<TSource, TSourceProperty, TTarget, TTargetProperty>
-        : PropertyToPropertyAssociationBase<TSource, TTarget>, IConvertionAssociation 
+        : PropertyToPropertyAssociationBase, IConvertionAssociation 
         where TSource : class 
         where TTarget : class, new()
     {

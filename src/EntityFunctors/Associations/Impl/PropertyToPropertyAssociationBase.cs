@@ -3,13 +3,11 @@
     using System.Diagnostics.Contracts;
     using System.Linq.Expressions;
     using System.Reflection;
-    using EntityFunctors.Extensions;
-    using EntityFunctors.Associations.Fluent;
+    using Extensions;
+    using Fluent;
 
-    public abstract class PropertyToPropertyAssociationBase<TSource, TTarget> 
+    public abstract class PropertyToPropertyAssociationBase
         : IMappingAssociation, IAccessable
-        where TSource : class
-        where TTarget : class, new()
     {
         public string Key { get; private set; }
 
