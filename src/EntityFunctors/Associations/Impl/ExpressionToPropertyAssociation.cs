@@ -7,7 +7,7 @@
     using EntityFunctors.Extensions;
     using EntityFunctors.Associations.Fluent;
 
-    public class ExpressionToPropertyAssociation<TSource, TTarget, TProperty> 
+    public class ExpressionToPropertyAssociation<TSource, TTarget, TProperty>
         : IMappingAssociation, IAccessable
         where TSource : class
         where TTarget : class, new()
@@ -24,10 +24,12 @@
         {
             Contract.Assert(source != null);
             Contract.Assert(target != null);
-            Contract.Assert(source.ReturnType == target.ReturnType);
-            
+
             PropertyInfo prop;
             Contract.Assert(target.Body.TryGetProperty(out prop));
+
+            if (source.Body is MemberExpression && (source.Body as MemberExpression).Expression == source.Parameters[0])
+                throw new ArgumentException("ExpressionToProperty association cannot be used for mapping properties");
 
             Source = source;
             Target = target;
@@ -44,9 +46,6 @@
 
         public void WriteOnly()
         {
-            if (!IsPropertyChain(Source))
-                throw new InvalidOperationException("Only property chain expression can be set writable");
-            
             Direction = MappingDirection.Write;
         }
 
@@ -57,9 +56,6 @@
 
         public void Write()
         {
-            if (!IsPropertyChain(Source))
-                throw new InvalidOperationException("Only property chain expression can be set writable");
-
             AddDirection(MappingDirection.Write);
         }
 
@@ -67,26 +63,6 @@
         {
             if ((Direction & val) != val)
                 Direction |= val;
-        }
-
-        private bool IsPropertyChain(LambdaExpression expression)
-        {
-            var current = expression.Body;
-
-            while (current != null)
-            {
-                PropertyInfo p;
-
-                if (current.NodeType == ExpressionType.Parameter)
-                    return true;
-                
-                if (!current.TryGetProperty(out p))
-                    return false;
-
-                current = (current as MemberExpression).Expression;
-            }
-
-            return true;
         }
     }
 }

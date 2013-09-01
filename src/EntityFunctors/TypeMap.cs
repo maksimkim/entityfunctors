@@ -9,8 +9,8 @@
     using Associations.Impl;
     using Extensions;
 
-    public class TypeMap<TSource, TTarget> : IAssociationProvider 
-        where TSource : class 
+    public class TypeMap<TSource, TTarget> : IAssociationProvider
+        where TSource : class
         where TTarget : class, new()
     {
         private readonly IList<IMappingAssociation> _associations = new List<IMappingAssociation>();
@@ -33,9 +33,9 @@
         }
 
         protected IAccessable MapProperties<TSourceProperty, TTargetProperty>(
-            Expression<Func<TSource, TSourceProperty>> source, 
-            Expression<Func<TSourceProperty, TTargetProperty>> converter, 
-            Expression<Func<TTarget, TTargetProperty>> target, 
+            Expression<Func<TSource, TSourceProperty>> source,
+            Expression<Func<TSourceProperty, TTargetProperty>> converter,
+            Expression<Func<TTarget, TTargetProperty>> target,
             Expression<Func<TTargetProperty, TSourceProperty>> inverseConverter
         )
         {
@@ -47,7 +47,7 @@
             return association;
         }
 
-        protected void MapExpressionToProperty<TProperty>(
+        protected IAccessable MapExpressionToProperty<TProperty>(
             Expression<Func<TSource, TProperty>> source,
             Expression<Func<TTarget, TProperty>> target
         )
@@ -56,13 +56,14 @@
 
             var association = new ExpressionToPropertyAssociation<TSource, TTarget, TProperty>(source, target);
             _associations.Add(association);
+            return association;
         }
 
         protected IExpandable MapComponents<TSourceComponent, TTargetComponent>(
             Expression<Func<TSource, TSourceComponent>> source,
             Expression<Func<TTarget, TTargetComponent>> target
-        ) 
-            where TSourceComponent : class 
+        )
+            where TSourceComponent : class
             where TTargetComponent : class, new()
         {
             var association = new ComponentToComponentAssociation<TSource, TSourceComponent, TTarget, TTargetComponent>(source, target);
@@ -86,8 +87,8 @@
         protected IExpandable MapComponentCollections<TSourceItem, TTargetItem>(
             Expression<Func<TSource, IEnumerable<TSourceItem>>> source,
             Expression<Func<TTarget, IEnumerable<TTargetItem>>> target
-        ) 
-            where TSourceItem : class 
+        )
+            where TSourceItem : class
             where TTargetItem : class, new()
         {
             var association = new ComponentCollectionAssociation<TSource, TSourceItem, TTarget, TTargetItem>(source, target);
@@ -96,7 +97,7 @@
         }
 
         public virtual TypeMapKey Key { get; protected set; }
-        
+
         public IEnumerable<IMappingAssociation> Associations
         {
             get { return _associations; }

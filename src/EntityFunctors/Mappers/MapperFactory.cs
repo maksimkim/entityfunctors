@@ -41,11 +41,6 @@
 
         public MapperFactory(IEnumerable<IAssociationProvider> providers)
         {
-            providers.ToDictionary(
-                m => m.Key,
-                m => m.Associations
-                );
-
             _registry = providers.ToDictionary(p => p.Key, p => p.Associations);
         }
 
@@ -80,7 +75,7 @@
             IEnumerable<IMappingAssociation> associations;
 
             if (!_registry.TryGetValue(mapKey, out associations))
-                throw new NotImplementedException(
+                throw new InvalidOperationException(
                     string.Format("Unable to create mapper from {0} to {1}. Check appropriate mappings exist and loaded.", from.Type, targetType)
                 );
 
@@ -231,7 +226,7 @@
             IEnumerable<IMappingAssociation> associations;
 
             if (!_registry.TryGetValue(mapKey, out associations))
-                throw new NotImplementedException(
+                throw new InvalidOperationException(
                     string.Format("Unable to create mapper from {0} to {1}. Check appropriate mappings exist and loaded.", @from.Type, to.Type)
                     );
 
@@ -274,6 +269,12 @@
             }
             else
             {
+                PropertyInfo prop;
+                if (!acceptor.TryGetProperty(out prop))
+                    throw new InvalidOperationException(
+                        string.Format("Mapping from source:{0} to target:{1} marked as writable but source is not a property access expression", association.Source.Stringify(), association.Target.Stringify())
+                    );
+                
                 result = Expression.Assign(
                     acceptor, 
                     converter == null ? donor : converter.TargetConverter.Expression.Apply(donor)

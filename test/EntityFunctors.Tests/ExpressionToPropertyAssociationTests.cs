@@ -59,16 +59,6 @@
         }
 
         [Test]
-        public void TestSettingWritablityThrowsOnInappropriateExpression()
-        {
-            Expression<Func<Foo, int>> source = _ => _.Id * _.Id;
-
-            var sut = new ExpressionToPropertyAssociation<Foo, Bar, int>(source, _ => _.Id);
-
-            ((Action) sut.Write).ShouldThrow<InvalidOperationException>();
-        }
-
-        [Test]
         public void TestInverseMappingAssignsOnWrite()
         {
             var foo = new Foo { Component = new Baz()};
